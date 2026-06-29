@@ -1,9 +1,4 @@
-import { JSDOM } from "jsdom";
-import createDOMPurify from "dompurify";
 import type { GeneratedListing } from "@listingforge/schemas";
-
-const window = new JSDOM("").window;
-const purifier = createDOMPurify(window);
 
 function escapeHtml(value: string): string {
   return value
@@ -30,11 +25,12 @@ function renderBlock(block: unknown): string {
 }
 
 export function sanitizeHtml(html: string): string {
-  return purifier.sanitize(html, {
-    ALLOWED_TAGS: ["article", "section", "div", "h2", "h3", "p", "ul", "ol", "li", "strong", "em", "figure", "figcaption", "img", "table", "thead", "tbody", "tr", "th", "td", "details", "summary", "a", "br", "span"],
-    ALLOWED_ATTR: ["class", "href", "src", "alt", "width", "height", "loading", "data-section-key"],
-    ALLOW_DATA_ATTR: true
-  });
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, "");
 }
 
 export function renderListingHtml(listing: GeneratedListing): string {

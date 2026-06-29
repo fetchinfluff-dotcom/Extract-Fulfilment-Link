@@ -11,3 +11,5 @@ apps/*/.turbo/
 apps/*/node_modules/
 packages/*/.turbo/
 packages/*/node_modules/
+
+.vercel
