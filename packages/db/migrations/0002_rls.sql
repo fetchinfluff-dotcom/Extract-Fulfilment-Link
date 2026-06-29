@@ -14,7 +14,7 @@ create policy "workspace members can read workspaces" on workspaces
 create policy "members can read memberships" on workspace_members
   for select using (user_id = auth.uid() or exists (
     select 1 from workspace_members wm
-    where wm.workspace_id = workspace_id and wm.user_id = auth.uid()
+    where wm.workspace_id = workspace_members.workspace_id and wm.user_id = auth.uid()
   ));
 
 create policy "members can read projects" on projects
