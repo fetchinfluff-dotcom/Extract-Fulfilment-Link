@@ -148,7 +148,17 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const payload = parseOpenAiResponse(await response.text());
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI provider returned an empty response.");
-    return GeneratedListingSchema.parse(parseJsonObjectContent(content));
+    const parsed = GeneratedListingSchema.safeParse(parseJsonObjectContent(content));
+    if (parsed.success) return parsed.data;
+
+    const fallback = await new MockAiProvider().generateListing(input);
+    return {
+      ...fallback,
+      compliance: {
+        ...fallback.compliance,
+        warnings: [...fallback.compliance.warnings, "AI provider response did not match the required schema; deterministic fallback draft was used."]
+      }
+    };
   }
 }
 
