@@ -7,6 +7,7 @@
 - Supplier integrations stay behind `SourceAdapter`; CJ/AliExpress/QKSource first try safe public HTML/JSON-LD extraction and fail clearly on blocked/dynamic pages.
 - Supabase-compatible schema and RLS migrations live in `packages/db/migrations`.
 - Local demo web uses in-memory storage only; database persistence is the next highest-priority implementation step.
+- Production is deployed on Vercel from `fetchinfluff-dotcom/Extract-Fulfilment-Link`.
 
 ## Phase Checklist
 
@@ -26,8 +27,9 @@
 
 - Public supplier extraction can work without credentials when the page exposes HTML/JSON-LD product data.
 - Supplier API credentials are still useful for richer variants, shipping, rate limits, and fewer blocked pages.
-- Supabase persistence requires `DATABASE_URL`, Supabase Auth project values, and applying migrations.
-- OpenAI-compatible generation is implemented; set `AI_MOCK_MODE=false`, `AI_BASE_URL`, `AI_API_KEY`, and `AI_MODEL_QUALITY`.
+- Supabase production environment variables are present on Vercel, but persistence still requires applying `packages/db/migrations` to the Supabase project. The current Supabase connector account does not have permission on project `ozfoqumrwovdawevpvbn`.
+- The provided JWT decodes as `anon`, not `service_role`; keep the secret API key server-only and rotate pasted keys before real customer traffic.
+- OpenAI-compatible generation is enabled in production. Invalid, wrapped, slow, or timed-out AI responses fall back to a deterministic source-fact draft with a compliance warning.
 
 ## Verification Commands
 
@@ -38,6 +40,10 @@
 - Passed: `pnpm build`
 - Passed after public-adapter/AI-provider wiring: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
 - Passed after installing Chromium with `pnpm exec playwright install chromium`: `pnpm e2e`
+- Passed after production hardening: `pnpm test` (3 files, 9 tests) and `pnpm build`
+- Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
+- Production verify: `POST /api/projects` with mock fixture -> 201, project detail page -> 200
+- Production note: AliExpress `.us` links are allowed; a fake item URL hit the safe redirect limit.
 - Optional local app: `pnpm dev`
 - Optional worker: `pnpm worker:dev`
 
