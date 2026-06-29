@@ -116,49 +116,50 @@ export class OpenAiCompatibleProvider implements AiProvider {
     if (!this.env.AI_BASE_URL || !this.env.AI_API_KEY || !this.env.AI_MODEL_QUALITY) {
       throw new Error("OpenAI-compatible provider requires AI_BASE_URL, AI_API_KEY, and AI_MODEL_QUALITY.");
     }
-    const response = await fetch(`${this.env.AI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.env.AI_API_KEY}`,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: this.env.AI_MODEL_QUALITY,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are ListingForge's product listing generator. Return only JSON matching the GeneratedListing schema. Do not invent reviews, ratings, guarantees, certifications, shipping times, or unsupported claims."
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              SOURCE_PRODUCT: input.source,
-              PRICING_RESULT: input.pricing,
-              BRAND_PROFILE: input.brandProfile ?? {},
-              REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "seo", "compliance", "factReferences"]
-            })
-          }
-        ]
-      })
-    });
-    if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
-    const payload = parseOpenAiResponse(await response.text());
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) throw new Error("AI provider returned an empty response.");
-    const parsed = GeneratedListingSchema.safeParse(parseJsonObjectContent(content));
-    if (parsed.success) return parsed.data;
-
-    const fallback = await new MockAiProvider().generateListing(input);
-    return {
-      ...fallback,
-      compliance: {
-        ...fallback.compliance,
-        warnings: [...fallback.compliance.warnings, "AI provider response did not match the required schema; deterministic fallback draft was used."]
-      }
-    };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const response = await fetch(`${this.env.AI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          authorization: `Bearer ${this.env.AI_API_KEY}`,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          model: this.env.AI_MODEL_QUALITY,
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are ListingForge's product listing generator. Return only JSON matching the GeneratedListing schema. Do not invent reviews, ratings, guarantees, certifications, shipping times, or unsupported claims."
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                SOURCE_PRODUCT: input.source,
+                PRICING_RESULT: input.pricing,
+                BRAND_PROFILE: input.brandProfile ?? {},
+                REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "seo", "compliance", "factReferences"]
+              })
+            }
+          ]
+        })
+      });
+      if (!response.ok) return aiFallback(input, `AI provider returned HTTP ${response.status}; deterministic fallback draft was used.`);
+      const payload = parseOpenAiResponse(await response.text());
+      const content = payload.choices?.[0]?.message?.content;
+      if (!content) return aiFallback(input, "AI provider returned an empty response; deterministic fallback draft was used.");
+      const parsed = GeneratedListingSchema.safeParse(parseJsonObjectContent(content));
+      if (parsed.success) return parsed.data;
+      return aiFallback(input, "AI provider response did not match the required schema; deterministic fallback draft was used.");
+    } catch {
+      return aiFallback(input, "AI provider request failed or timed out; deterministic fallback draft was used.");
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
 
@@ -172,6 +173,17 @@ function stripJsonFence(value: string): string {
 
 function parseOpenAiResponse(value: string): { choices?: Array<{ message?: { content?: string } }> } {
   return parseJsonObjectContent(value) as { choices?: Array<{ message?: { content?: string } }> };
+}
+
+async function aiFallback(input: GenerateInput, warning: string): Promise<GeneratedListing> {
+  const fallback = await new MockAiProvider().generateListing(input);
+  return {
+    ...fallback,
+    compliance: {
+      ...fallback.compliance,
+      warnings: [...fallback.compliance.warnings, warning]
+    }
+  };
 }
 
 function parseJsonObjectContent(value: string): unknown {
