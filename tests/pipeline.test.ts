@@ -30,13 +30,13 @@ describe("fixture pipeline", () => {
     try {
       const source = await new AliExpressAdapter({
         FEATURE_ALIEXPRESS_ADAPTER: true,
-        ALLOWED_SOURCE_DOMAINS: ["aliexpress.com"],
+        ALLOWED_SOURCE_DOMAINS: ["aliexpress.com", "aliexpress.us"],
         FETCH_TIMEOUT_MS: 1000,
         MAX_FETCH_BYTES: 10_000,
         MAX_URL_REDIRECTS: 1,
         FEATURE_CJ_ADAPTER: true,
         FEATURE_QKSOURCE_ADAPTER: true
-      }).extract({ url: new URL("https://www.aliexpress.com/item/1.html"), targetCountry: "US" });
+      }).extract({ url: new URL("https://www.aliexpress.us/item/1.html"), targetCountry: "US" });
       expect(source.sourceTitle).toBe("Public Test Lamp");
       expect(source.variants[0]?.itemCost).toBe(12.5);
     } finally {

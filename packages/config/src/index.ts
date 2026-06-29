@@ -30,7 +30,7 @@ export const EnvSchema = z.object({
   CJ_API_KEY: z.string().optional(),
   ALLOWED_SOURCE_DOMAINS: z
     .string()
-    .default("mock.listingforge.local,aliexpress.com,www.aliexpress.com,cjdropshipping.com,www.cjdropshipping.com,qksource.com,www.qksource.com")
+    .default("mock.listingforge.local,aliexpress.com,www.aliexpress.com,aliexpress.us,www.aliexpress.us,cjdropshipping.com,www.cjdropshipping.com,qksource.com,www.qksource.com")
     .transform((value) => value.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean)),
   MAX_URL_REDIRECTS: intString(3),
   MAX_FETCH_BYTES: intString(5_242_880),
