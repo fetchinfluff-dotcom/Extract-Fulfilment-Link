@@ -148,7 +148,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI provider returned an empty response.");
-    return GeneratedListingSchema.parse(JSON.parse(stripJsonFence(content)));
+    return GeneratedListingSchema.parse(parseJsonObjectContent(content));
   }
 }
 
@@ -158,4 +158,36 @@ export function createAiProvider(env: AppEnv): AiProvider {
 
 function stripJsonFence(value: string): string {
   return value.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+}
+
+function parseJsonObjectContent(value: string): unknown {
+  const text = stripJsonFence(value);
+  const start = text.indexOf("{");
+  if (start === -1) throw new Error("AI provider did not return a JSON object.");
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    if (char === "}") depth -= 1;
+    if (depth === 0) return JSON.parse(text.slice(start, index + 1));
+  }
+
+  throw new Error("AI provider returned incomplete JSON.");
 }
