@@ -145,7 +145,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       })
     });
     if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
-    const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const payload = parseOpenAiResponse(await response.text());
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI provider returned an empty response.");
     return GeneratedListingSchema.parse(parseJsonObjectContent(content));
@@ -158,6 +158,10 @@ export function createAiProvider(env: AppEnv): AiProvider {
 
 function stripJsonFence(value: string): string {
   return value.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+}
+
+function parseOpenAiResponse(value: string): { choices?: Array<{ message?: { content?: string } }> } {
+  return parseJsonObjectContent(value) as { choices?: Array<{ message?: { content?: string } }> };
 }
 
 function parseJsonObjectContent(value: string): unknown {

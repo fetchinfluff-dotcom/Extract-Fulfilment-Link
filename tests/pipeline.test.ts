@@ -53,7 +53,7 @@ describe("fixture pipeline", () => {
     const expected = await new MockAiProvider().generateListing({ source, pricing });
     const oldFetch = globalThis.fetch;
     globalThis.fetch = async () =>
-      new Response(JSON.stringify({ choices: [{ message: { content: `Here is the draft:\n\`\`\`json\n${JSON.stringify(expected)}\n\`\`\`\n{"ignored":true}` } }] }), { status: 200 });
+      new Response(`${JSON.stringify({ choices: [{ message: { content: `Here is the draft:\n\`\`\`json\n${JSON.stringify(expected)}\n\`\`\`\n{"ignored":true}` } }] })}\n{"event":"done"}`, { status: 200 });
     try {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
       expect(listing.selectedTitle).toBe(expected.selectedTitle);
