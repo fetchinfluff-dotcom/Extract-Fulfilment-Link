@@ -44,6 +44,46 @@ describe("fixture pipeline", () => {
     }
   });
 
+  it("extracts AliExpress mtop title, images, price, and shipping", async () => {
+    const oldFetch = globalThis.fetch;
+    const mtop = {
+      ret: ["SUCCESS::调用成功"],
+      data: {
+        result: {
+          PRODUCT_TITLE: { text: "Rolling Knife Sharpener" },
+          HEADER_IMAGE_PC: { imagePathList: ["https://ae01.alicdn.com/kf/test.jpg"] },
+          PRICE: { targetSkuPriceInfo: { salePriceString: "$4.50", originalPrice: { currency: "USD" } } },
+          SHIPPING: { deliveryLayoutInfo: [{ bizData: { shippingFee: "charge", displayAmount: 1.99, displayCurrency: "USD", deliveryProviderName: "AliExpress Standard", utParams: "{\"deliveryDayMax\":12}" } }] },
+          SKU: { selectedSkuIdStr: "sku-1" }
+        }
+      }
+    };
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      if (calls === 1) return new Response("<html><title>Fallback</title></html>", { status: 200, headers: { "content-type": "text/html" } });
+      if (calls === 2) return new Response(JSON.stringify({ ret: ["FAIL_SYS_TOKEN_EMPTY::token empty"] }), { status: 200, headers: { "set-cookie": "_m_h5_tk=token_1; _m_h5_tk_enc=enc" } });
+      return new Response(JSON.stringify(mtop), { status: 200 });
+    };
+    try {
+      const source = await new AliExpressAdapter({
+        FEATURE_ALIEXPRESS_ADAPTER: true,
+        ALLOWED_SOURCE_DOMAINS: ["aliexpress.com"],
+        FETCH_TIMEOUT_MS: 1000,
+        MAX_FETCH_BYTES: 10_000,
+        MAX_URL_REDIRECTS: 1,
+        FEATURE_CJ_ADAPTER: true,
+        FEATURE_QKSOURCE_ADAPTER: true
+      }).extract({ url: new URL("https://www.aliexpress.com/item/1005008224752493.html"), targetCountry: "US" });
+      expect(source.sourceTitle).toBe("Rolling Knife Sharpener");
+      expect(source.media[0]?.url).toBe("https://ae01.alicdn.com/kf/test.jpg");
+      expect(source.variants[0]?.itemCost).toBe(4.5);
+      expect(source.shippingQuotes[0]?.cost).toBe(1.99);
+    } finally {
+      globalThis.fetch = oldFetch;
+    }
+  });
+
   it("validates OpenAI-compatible JSON responses", async () => {
     const source = await new MockSourceAdapter().extract({
       url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),

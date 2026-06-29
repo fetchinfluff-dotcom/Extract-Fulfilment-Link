@@ -16,6 +16,12 @@ function renderBlock(block: unknown): string {
   if (record.type === "list" && Array.isArray(record.items)) {
     return `<ul>${record.items.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul>`;
   }
+  if (record.type === "image" && typeof record.url === "string") {
+    return `<figure><img src="${escapeHtml(record.url)}" alt="${escapeHtml(String(record.alt ?? ""))}" loading="lazy" /></figure>`;
+  }
+  if (record.type === "quote" && typeof record.text === "string") {
+    return `<blockquote>${escapeHtml(record.text)}</blockquote>`;
+  }
   if (record.type === "table" && record.rows && typeof record.rows === "object") {
     return `<table><tbody>${Object.entries(record.rows as Record<string, unknown>)
       .map(([key, value]) => `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(value))}</td></tr>`)

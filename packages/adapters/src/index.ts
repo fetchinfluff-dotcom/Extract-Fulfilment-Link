@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { AppEnv } from "@listingforge/config";
 import type { SourcePlatform, SourceProduct } from "@listingforge/schemas";
 import { SourceProductSchema } from "@listingforge/schemas";
@@ -32,7 +33,8 @@ abstract class PublicPageAdapter implements SourceAdapter {
   async extract(input: ExtractInput): Promise<SourceProduct> {
     if (!this.enabled) throw new Error(`${this.platform} public-page adapter is disabled by feature flag.`);
     const html = await fetchPublicHtml(input.url, this.env);
-    return SourceProductSchema.parse(normalizePublicPage(input.url, input.targetCountry, this.platform, html));
+    const liveData = this.platform === "aliexpress" ? await fetchAliExpressMtop(input.url, input.targetCountry, this.env).catch(() => null) : null;
+    return SourceProductSchema.parse(normalizePublicPage(input.url, input.targetCountry, this.platform, html, liveData));
   }
 }
 
@@ -140,36 +142,123 @@ async function readLimitedText(response: Response, maxBytes: number): Promise<st
   return new TextDecoder().decode(Uint8Array.from(chunks.flatMap((chunk) => [...chunk])));
 }
 
-function normalizePublicPage(url: URL, targetCountry: string, platform: SourcePlatform, html: string): SourceProduct {
+function normalizePublicPage(url: URL, targetCountry: string, platform: SourcePlatform, html: string, liveData: Record<string, unknown> | null = null): SourceProduct {
   const jsonLd = extractJsonLdProduct(html);
+  const ali = record(record(record(liveData?.data)?.result));
+  const aliPrice = record(record(ali?.PRICE)?.targetSkuPriceInfo) ?? Object.values(record(record(ali?.PRICE)?.skuPriceInfoMap) ?? {}).map(record).find(Boolean) ?? null;
+  const aliShipping = record((array(record(ali?.SHIPPING)?.deliveryLayoutInfo)[0] ?? array(record(ali?.SHIPPING)?.originalLayoutResultList)[0]) as unknown)?.bizData;
   const offers = record(jsonLd?.offers);
-  const title = text(jsonLd?.name) ?? extractTag(html, "title") ?? "Untitled public product";
+  const title = text(record(ali?.PRODUCT_TITLE)?.text) ?? text(jsonLd?.name) ?? extractTag(html, "title") ?? "Untitled public product";
   const description = text(jsonLd?.description) ?? extractMeta(html, "description") ?? null;
-  const price = Number(text(offers?.price) ?? 0);
-  const currency = (text(offers?.priceCurrency) ?? "USD").slice(0, 3).toUpperCase();
-  const image = text(Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image);
+  const price = money(record(aliPrice?.salePrice)?.value) ?? money(aliPrice?.salePriceString) ?? money(offers?.price) ?? 0;
+  const currency = (text(record(aliPrice?.salePrice)?.currency) ?? text(record(aliPrice?.originalPrice)?.currency) ?? text(offers?.priceCurrency) ?? "USD").slice(0, 3).toUpperCase();
+  const shippingCost = text(record(aliShipping)?.shippingFee) === "free" ? 0 : money(record(aliShipping)?.displayAmount) ?? money(record(aliShipping)?.formattedAmount);
+  const imageUrls = unique([
+    ...array(record(ali?.HEADER_IMAGE_PC)?.imagePathList).map(text),
+    ...array(record(ali?.HEADER_IMAGE_PC)?.currentSkuImages).map(text),
+    text(Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image)
+  ].filter((item): item is string => Boolean(item)));
   const warnings = ["Public-page extraction only. Review facts manually; dynamic variants and shipping may be incomplete."];
   if (!price) warnings.push("No public price was found.");
+  if (platform === "aliexpress" && !liveData) warnings.push("AliExpress live product API was unavailable; fell back to HTML-only extraction.");
+  if (platform === "aliexpress" && shippingCost == null) warnings.push("AliExpress shipping cost was not found.");
   return {
     platform,
     canonicalUrl: url.toString(),
-    sourceProductId: text(jsonLd?.sku) ?? null,
+    sourceProductId: extractAliExpressProductId(url) ?? text(jsonLd?.sku) ?? null,
     sourceTitle: title,
     sourceDescriptionText: description,
     currency,
-    variants: [{ id: "public-default", sku: text(jsonLd?.sku) ?? null, title: "Default", options: {}, itemCost: Number.isFinite(price) ? price : 0, inventoryStatus: null, imageUrl: image ?? null }],
-    shippingQuotes: [],
-    media: image ? [{ url: image, type: "image", sourceType: "supplier", licenseStatus: "unknown" }] : [],
-    attributes: {},
+    variants: [{ id: text(record(ali?.SKU)?.selectedSkuIdStr) ?? "public-default", sku: text(record(ali?.SKU)?.selectedSkuIdStr) ?? text(jsonLd?.sku) ?? null, title: "Default", options: {}, itemCost: Number.isFinite(price) ? price : 0, inventoryStatus: null, imageUrl: imageUrls[0] ?? null }],
+    shippingQuotes: shippingCost == null ? [] : [{
+      variantId: text(record(ali?.SKU)?.selectedSkuIdStr) ?? null,
+      destinationCountry: targetCountry,
+      methodName: text(record(aliShipping)?.deliveryProviderName) ?? "AliExpress shipping",
+      cost: shippingCost,
+      currency: (text(record(aliShipping)?.displayCurrency) ?? currency).slice(0, 3).toUpperCase(),
+      estimatedMinDays: null,
+      estimatedMaxDays: number(record(parseJson(text(record(aliShipping)?.utParams)))?.deliveryDayMax),
+      tracked: null,
+      quotedAt: new Date().toISOString()
+    }],
+    media: imageUrls.map((image) => ({ url: image, type: "image" as const, sourceType: "supplier" as const, licenseStatus: "unknown" as const })),
+    attributes: { aliexpress: ali ? { price: ali.PRICE, shipping: ali.SHIPPING, sku: ali.SKU, productProps: ali.PRODUCT_PROP_PC } : null },
     packageContents: [],
     instructions: [],
     facts: [
-      { factId: "public_title", field: "product_type", value: title, source: "public_page", sourcePath: "title/jsonld.name", confidence: 0.65 },
+      { factId: "public_title", field: "product_type", value: title, source: "public_page", sourcePath: ali ? "mtop.PRODUCT_TITLE.text" : "title/jsonld.name", confidence: ali ? 0.85 : 0.65 },
+      { factId: "public_price", field: "item_cost", value: price, source: "public_page", sourcePath: ali ? "mtop.PRICE.targetSkuPriceInfo" : "jsonld.offers.price", confidence: price ? 0.8 : 0.1 },
+      ...(shippingCost == null ? [] : [{ factId: "public_shipping", field: "shipping_cost", value: shippingCost, source: "public_page", sourcePath: "mtop.SHIPPING", confidence: 0.75 }]),
       ...(description ? [{ factId: "public_description", field: "description", value: description, source: "public_page", sourcePath: "meta/jsonld.description", confidence: 0.55 }] : [])
     ],
     warnings,
-    confidence: 0.55
+    confidence: ali ? 0.78 : 0.55
   };
+}
+
+async function fetchAliExpressMtop(url: URL, targetCountry: string, env: PublicAdapterEnv): Promise<Record<string, unknown> | null> {
+  const productId = extractAliExpressProductId(url);
+  if (!productId) return null;
+  let cookie = "";
+  let text = "";
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetchLimited(mtopUrl(productId, targetCountry, cookie), env, {
+      cookie,
+      referer: url.toString(),
+      "user-agent": "Mozilla/5.0 (compatible; ListingForgeBot/0.1)"
+    });
+    cookie = cookieHeader(response.headers.get("set-cookie") ?? "") || cookie;
+    text = await readLimitedText(response, env.MAX_FETCH_BYTES);
+  }
+  const payload = JSON.parse(text) as Record<string, unknown>;
+  return array(payload.ret).some((item) => String(item).includes("SUCCESS")) ? payload : null;
+}
+
+async function fetchLimited(url: URL, env: PublicAdapterEnv, headers: Record<string, string>): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal, headers });
+    if (!response.ok) throw new Error(`Source API returned HTTP ${response.status}.`);
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function mtopUrl(productId: string, targetCountry: string, cookie: string): URL {
+  const appKey = "12574478";
+  const data = JSON.stringify({
+    productId,
+    _lang: `en_${targetCountry.toUpperCase()}`,
+    _currency: "USD",
+    country: targetCountry.toUpperCase(),
+    province: "",
+    city: "",
+    channel: "",
+    pdp_ext_f: "",
+    pdpNPI: "",
+    sourceType: "",
+    clientType: "pc",
+    ext: JSON.stringify({ site: "glo", crawler: false, signedIn: false, host: "www.aliexpress.com" })
+  });
+  const token = cookie.match(/_m_h5_tk=([^_;]+)/)?.[1] ?? "";
+  const t = Date.now().toString();
+  const sign = createHash("md5").update(`${token}&${t}&${appKey}&${data}`).digest("hex");
+  const url = new URL("https://acs.aliexpress.com/h5/mtop.aliexpress.pdp.pc.query/1.0/");
+  url.search = new URLSearchParams({ jsv: "2.5.1", appKey, t, sign, api: "mtop.aliexpress.pdp.pc.query", v: "1.0", type: "originaljson", dataType: "json", data }).toString();
+  return url;
+}
+
+function cookieHeader(setCookie: string): string {
+  return ["_m_h5_tk", "_m_h5_tk_enc"]
+    .map((key) => setCookie.match(new RegExp(`${key}=([^;,]+)`))?.[0])
+    .filter(Boolean)
+    .join("; ");
+}
+
+function extractAliExpressProductId(url: URL): string | null {
+  return url.pathname.match(/\/(?:item|i)\/(\d+)\.html?$/)?.[1] ?? null;
 }
 
 function extractJsonLdProduct(html: string): Record<string, unknown> | null {
@@ -201,8 +290,35 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function number(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function money(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number.parseFloat(String(value ?? "").replace(/[^0-9.]+/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function array(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function parseJson(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function decode(value: string | undefined): string | null {
