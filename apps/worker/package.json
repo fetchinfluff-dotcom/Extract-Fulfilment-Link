@@ -1,0 +1,26 @@
+{
+  "name": "@listingforge/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@listingforge/adapters": "workspace:*",
+    "@listingforge/ai": "workspace:*",
+    "@listingforge/config": "workspace:*",
+    "@listingforge/html": "workspace:*",
+    "@listingforge/pricing": "workspace:*",
+    "@listingforge/security": "workspace:*",
+    "bullmq": "^5.66.1",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.23",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,13 @@
+.env
+.env.local
+node_modules/
+.turbo/
+.next/
+dist/
+test-results/
+playwright-report/
+apps/*/.next/
+apps/*/.turbo/
+apps/*/node_modules/
+packages/*/.turbo/
+packages/*/node_modules/

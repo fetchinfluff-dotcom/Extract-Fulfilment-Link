@@ -1,0 +1,38 @@
+{
+  "name": "listingforge",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "worker:dev": "pnpm --filter @listingforge/worker dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^20.19.23",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^27.3.0",
+    "turbo": "^2.6.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.87.1",
+    "bullmq": "^5.66.1",
+    "dompurify": "^3.3.1",
+    "drizzle-orm": "^0.45.1",
+    "ioredis": "^5.8.2",
+    "lucide-react": "^0.562.0",
+    "next": "^16.1.1",
+    "postgres": "^3.4.7",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "zod": "^4.2.1"
+  }
+}

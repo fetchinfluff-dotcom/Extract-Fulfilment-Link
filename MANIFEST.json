@@ -1,0 +1,26 @@
+{
+  "project": "ListingForge",
+  "working_title": true,
+  "file_count": 17,
+  "entry_prompt": "CODEX_MASTER_PROMPT.md",
+  "codex_command": "cat CODEX_MASTER_PROMPT.md | codex exec -",
+  "generated_files": [
+    ".env.example",
+    "AGENTS.md",
+    "CODEX_MASTER_PROMPT.md",
+    "README.md",
+    "REFERENCES.md",
+    "docker-compose.dev.yml",
+    "docs/01_PRD.md",
+    "docs/02_ARCHITECTURE.md",
+    "docs/03_DATA_MODEL_API.md",
+    "docs/04_AI_CONTENT_ENGINE.md",
+    "docs/05_UX_UI_SPEC.md",
+    "docs/06_SECURITY_COMPLIANCE.md",
+    "docs/07_IMPLEMENTATION_ROADMAP.md",
+    "docs/08_TEST_ACCEPTANCE.md",
+    "prompts/product-generator-system.md",
+    "schemas/generated-listing.schema.json",
+    "schemas/source-product.schema.json"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@listingforge/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@listingforge/adapters": "workspace:*",
+    "@listingforge/ai": "workspace:*",
+    "@listingforge/config": "workspace:*",
+    "@listingforge/html": "workspace:*",
+    "@listingforge/pricing": "workspace:*",
+    "@listingforge/schemas": "workspace:*",
+    "@listingforge/security": "workspace:*",
+    "@listingforge/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.87.1",
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.23",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://listingforge.local/schemas/source-product.schema.json",
+  "title": "SourceProduct",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "platform",
+    "canonicalUrl",
+    "sourceTitle",
+    "currency",
+    "variants",
+    "shippingQuotes",
+    "media",
+    "attributes",
+    "facts",
+    "warnings",
+    "confidence"
+  ],
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": [
+        "aliexpress",
+        "cjdropshipping",
+        "qksource",
+        "manual"
+      ]
+    },
+    "canonicalUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "sourceProductId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceTitle": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceDescriptionText": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 3
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "options",
+          "itemCost"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object"
+          },
+          "itemCost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "inventoryStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "shippingQuotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "destinationCountry",
+          "methodName",
+          "cost",
+          "currency",
+          "quotedAt"
+        ],
+        "properties": {
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destinationCountry": {
+            "type": "string"
+          },
+          "methodName": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
+          "estimatedMinDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "estimatedMaxDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "tracked": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "quotedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "media": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "type",
+          "sourceType"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ]
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "supplier",
+              "user",
+              "generated",
+              "licensed"
+            ]
+          },
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "licenseStatus": {
+            "type": "string",
+            "enum": [
+              "supplier-authorized",
+              "user-owned",
+              "licensed-stock",
+              "generated",
+              "unknown",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    "attributes": {
+      "type": "object"
+    },
+    "packageContents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "factId",
+          "field",
+          "value",
+          "source",
+          "confidence"
+        ],
+        "properties": {
+          "factId": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "value": {},
+          "source": {
+            "type": "string"
+          },
+          "sourcePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://listingforge.local/schemas/generated-listing.schema.json",
+  "title": "GeneratedListing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "category",
+    "riskLevel",
+    "titleCandidates",
+    "selectedTitle",
+    "subtitle",
+    "heroBenefits",
+    "sections",
+    "seo",
+    "compliance",
+    "factReferences"
+  ],
+  "properties": {
+    "category": {
+      "type": "string"
+    },
+    "subcategory": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "RESTRICTED"
+      ]
+    },
+    "targetBuyer": {
+      "type": "string"
+    },
+    "valueProposition": {
+      "type": "string"
+    },
+    "titleCandidates": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "pattern",
+          "riskNotes"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "mainKeyword": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "riskNotes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "selectedTitle": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "heroBenefits": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {
+        "type": "string"
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "type",
+          "heading",
+          "blocks",
+          "factIds"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "blocks": {
+            "type": "array"
+          },
+          "mediaAssetIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "factIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "placeholder": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "faq": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question",
+          "answer",
+          "factIds"
+        ],
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "factIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "seo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metaTitle",
+        "metaDescription",
+        "handle",
+        "imageAltTexts"
+      ],
+      "properties": {
+        "metaTitle": {
+          "type": "string"
+        },
+        "metaDescription": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        },
+        "imageAltTexts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "assetId",
+              "alt"
+            ],
+            "properties": {
+              "assetId": {
+                "type": "string"
+              },
+              "alt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "productJsonLdDraft": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "compliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "warnings",
+        "unsupportedClaims",
+        "humanReviewRequired"
+      ],
+      "properties": {
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unsupportedClaims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "humanReviewRequired": {
+          "type": "boolean"
+        }
+      }
+    },
+    "factReferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "factIds"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "factIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
