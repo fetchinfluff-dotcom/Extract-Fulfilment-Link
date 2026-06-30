@@ -24,7 +24,7 @@ export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     const productType = String(input.source.facts.find((fact) => fact.field === "product_type")?.value ?? "Product");
     const brandName = `${slugify(productType).split("-").filter(Boolean)[0]?.slice(0, 8) || "Nova"}Pro`;
-    const selectedTitle = `${brandName}™ – ${productType}`;
+    const selectedTitle = `${brandName} - ${productType}`;
     const factIds = input.source.facts.map((fact) => fact.factId);
     const media = input.source.media.slice(0, 5);
     const imageBlock = (index: number, alt: string) => media[index] ? { type: "image", url: media[index].url, alt } : `Add supplier image ${index + 1} after media rights review.`;
@@ -37,10 +37,10 @@ export class MockAiProvider implements AiProvider {
       targetBuyer: "Shoppers comparing practical product upgrades",
       valueProposition: `${productType} positioned with source-backed benefits, clear visuals, and conservative claims.`,
       titleCandidates: [
-        { title: selectedTitle, pattern: "[Brand/Product Name] – [Product type or main benefit]", mainKeyword: productType, riskNotes: [] },
-        { title: `${brandName}™ ${productType} for Everyday Use`, pattern: "Brand + product type + use case", mainKeyword: productType, riskNotes: [] },
-        { title: `${productType} – Source-Verified Product Draft`, pattern: "Plain SEO descriptive title", mainKeyword: productType, riskNotes: [] },
-        { title: `${brandName}™ Essential ${productType}`, pattern: "Brandable short title", mainKeyword: productType, riskNotes: [] },
+        { title: selectedTitle, pattern: "[Brand/Product Name] - [Product type or main benefit]", mainKeyword: productType, riskNotes: [] },
+        { title: `${brandName} ${productType} for Everyday Use`, pattern: "Brand + product type + use case", mainKeyword: productType, riskNotes: [] },
+        { title: `${productType} - Source-Verified Product Draft`, pattern: "Plain SEO descriptive title", mainKeyword: productType, riskNotes: [] },
+        { title: `${brandName} Essential ${productType}`, pattern: "Brandable short title", mainKeyword: productType, riskNotes: [] },
         { title: `${productType} with Supplier-Verified Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: productType, riskNotes: [] }
       ],
       selectedTitle,
@@ -121,11 +121,28 @@ export class OpenAiCompatibleProvider implements AiProvider {
               content: JSON.stringify({
                 SOURCE_PRODUCT: input.source,
                 PRICING_RESULT: input.pricing,
-              BRAND_PROFILE: input.brandProfile ?? {},
-              REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "seo", "compliance", "factReferences"],
+                BRAND_PROFILE: input.brandProfile ?? {},
+              REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "faq", "seo", "compliance", "factReferences"],
               REQUIRED_DESCRIPTION_MODULES: ["Product Hero", "Trust Strip", "Problem/Outcome", "Product Demo", "Three Core Benefits", "How It Works", "Why Choose This Product", "Customer Proof", "Specifications", "Package Contents", "Guarantee + FAQ", "Final CTA + Reviews"],
-              TITLE_FORMULA: "[Brand/Product Name] – [Product type or main benefit]",
-              SOCIAL_PROOF_RULE: "Only include ratings, review counts, purchases, guarantees, certifications, or urgency when SOURCE_PRODUCT facts prove them."
+              TITLE_FORMULA: "[Brand/Product Name] - [Product type or main benefit]",
+              SOCIAL_PROOF_RULE: "Only include ratings, review counts, purchases, guarantees, certifications, or urgency when SOURCE_PRODUCT facts prove them.",
+              JSON_SHAPE: {
+                category: "string",
+                subcategory: null,
+                riskLevel: "LOW",
+                targetBuyer: "string",
+                valueProposition: "string",
+                titleCandidates: [{ title: "string", pattern: "string", mainKeyword: "string", riskNotes: [] }],
+                selectedTitle: "string",
+                subtitle: "string",
+                heroBenefits: ["string", "string", "string"],
+                sections: [{ key: "product-hero", type: "hero", heading: "Product Hero", blocks: ["string"], mediaAssetIds: ["media-1"], factIds: ["fact-id"], placeholder: false }],
+                faq: [{ question: "string", answer: "string", factIds: ["fact-id"] }],
+                seo: { metaTitle: "string", metaDescription: "string", handle: "string", imageAltTexts: [{ assetId: "media-1", alt: "string" }] },
+                productJsonLdDraft: null,
+                compliance: { warnings: [], unsupportedClaims: [], humanReviewRequired: false },
+                factReferences: [{ claim: "string", factIds: ["fact-id"] }]
+              }
             })
           }
         ]
@@ -135,7 +152,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       const payload = parseOpenAiResponse(await response.text());
       const content = payload.choices?.[0]?.message?.content;
       if (!content) return aiFallback(input, "AI provider returned an empty response; deterministic fallback draft was used.");
-      const parsed = GeneratedListingSchema.safeParse(parseJsonObjectContent(content));
+      const parsed = GeneratedListingSchema.safeParse(unwrapGeneratedListing(parseJsonObjectContent(content)));
       if (parsed.success) return parsed.data;
       return aiFallback(input, "AI provider response did not match the required schema; deterministic fallback draft was used.");
     } catch {
@@ -200,4 +217,13 @@ function parseJsonObjectContent(value: string): unknown {
   }
 
   throw new Error("AI provider returned incomplete JSON.");
+}
+
+function unwrapGeneratedListing(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  for (const key of ["listing", "generatedListing", "productListing", "data"]) {
+    if (record[key]) return record[key];
+  }
+  return value;
 }
