@@ -91,13 +91,13 @@ export class MockAiProvider implements AiProvider {
 }
 
 export class OpenAiCompatibleProvider implements AiProvider {
-  constructor(private readonly env: Pick<AppEnv, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL_QUALITY">) {}
+  constructor(private readonly env: Pick<AppEnv, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL_QUALITY"> & Partial<Pick<AppEnv, "AI_TIMEOUT_MS">>) {}
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     if (!this.env.AI_BASE_URL || !this.env.AI_API_KEY || !this.env.AI_MODEL_QUALITY) {
       throw new Error("OpenAI-compatible provider requires AI_BASE_URL, AI_API_KEY, and AI_MODEL_QUALITY.");
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
+    const timeout = setTimeout(() => controller.abort(), this.env.AI_TIMEOUT_MS ?? 120_000);
     try {
       const response = await fetch(`${this.env.AI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",

@@ -28,6 +28,7 @@ export const EnvSchema = z.object({
   AI_API_KEY: z.string().optional(),
   AI_MODEL_FAST: z.string().optional(),
   AI_MODEL_QUALITY: z.string().optional(),
+  AI_TIMEOUT_MS: intString(120_000),
   AI_MOCK_MODE: boolString.default(true),
   CJ_API_BASE_URL: z.url().default("https://developers.cjdropshipping.com"),
   CJ_ACCESS_TOKEN: z.string().optional(),
