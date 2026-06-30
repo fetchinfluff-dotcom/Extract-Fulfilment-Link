@@ -101,7 +101,8 @@ async function rest<T>(env: ReturnType<typeof loadEnv>, path: string, init: Requ
     }
   });
   if (!response.ok) throw new Error(`Supabase ${path} returned HTTP ${response.status}: ${await response.text()}`);
-  return response.status === 204 ? undefined as T : await response.json() as T;
+  const text = await response.text();
+  return text ? JSON.parse(text) as T : undefined as T;
 }
 
 async function saveProject(project: DemoProject, env: ReturnType<typeof loadEnv>): Promise<void> {
