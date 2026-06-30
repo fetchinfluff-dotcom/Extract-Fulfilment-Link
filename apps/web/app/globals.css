@@ -143,10 +143,28 @@ textarea {
   gap: 8px;
 }
 
+.media-actions, .status-log {
+  display: grid;
+  gap: 8px;
+}
+
+.media-actions .lf-button {
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .preview article {
   background: white;
   border: 1px solid var(--border);
   border-radius: 8px;
+  padding: 20px;
+}
+
+.preview .lf-product-description {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
   padding: 20px;
 }
 

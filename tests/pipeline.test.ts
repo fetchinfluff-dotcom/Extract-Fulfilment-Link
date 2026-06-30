@@ -12,13 +12,25 @@ describe("fixture pipeline", () => {
       targetCountry: "US"
     });
     expect(SourceProductSchema.safeParse(source).success).toBe(true);
-    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
-    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    const richSource = {
+      ...source,
+      media: [
+        ...source.media,
+        ...source.media.map((media) => ({ ...media, url: media.url.replace(".jpg", "-detail.jpg") })),
+        ...source.media.map((media) => ({ ...media, url: media.url.replace(".jpg", "-lifestyle.jpg") }))
+      ]
+    };
+    const pricing = calculatePricing({ itemCost: richSource.variants[0]?.itemCost ?? 0, shippingCost: richSource.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source: richSource, pricing });
     expect(GeneratedListingSchema.safeParse(listing).success).toBe(true);
     const html = renderListingHtml(listing);
     expect(listing.selectedTitle.length).toBeLessThan(80);
     expect(html).toContain("lf-product-description");
     expect(html).toContain("max-width: 100%");
+    expect((html.match(/<img /g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(html).not.toContain("OUR GUARANTEE");
+    expect(html).not.toContain("Product Hero");
+    expect(html).not.toContain("Trust Strip");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");
   });
 

@@ -54,5 +54,5 @@ ${section.blocks.map(renderBlock).join("\n")}`;
         .map((item) => `<p><span style="font-size: 16px; color: ${blue};"><strong>${escapeHtml(item.question)}</strong><br />${escapeHtml(item.answer)}</span></p>`)
         .join("")}`
     : "";
-  return sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(listing.subtitle)}</span></p>${body}${faq}<p><span style="font-size: 18px; color: ${blue};"><strong>OUR GUARANTEE:</strong><br />If you do not have a positive experience for any reason, contact us any time and we will help you out.<br />✅ Safe and Secure SSL Checkout<br />✅ 100% Quality Inspection<br />✅ 24/7 Customer Service<br />✅ Real time tracking along the way<br />✅ No hidden fees</span></p></div>`);
+  return sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(listing.subtitle)}</span></p>${body}${faq}</div>`);
 }
