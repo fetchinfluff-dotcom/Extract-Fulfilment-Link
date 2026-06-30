@@ -109,7 +109,6 @@ export class OpenAiCompatibleProvider implements AiProvider {
         body: JSON.stringify({
           model: this.env.AI_MODEL_QUALITY,
           temperature: 0.2,
-          response_format: { type: "json_object" },
           messages: [
             {
               role: "system",
