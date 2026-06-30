@@ -31,7 +31,39 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("OUR GUARANTEE");
     expect(html).not.toContain("Product Hero");
     expect(html).not.toContain("Trust Strip");
+    expect(html).not.toContain("Detected item cost");
+    expect(html).not.toContain("Suggested range");
+    expect(html).not.toContain("[object Object]");
+    expect(html).not.toContain("Add verified reviews only after import");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");
+  });
+
+  it("does not render internal pricing or object noise in descriptions", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    const html = renderListingHtml({
+      ...listing,
+      sections: [{
+        ...listing.sections[0],
+        blocks: [
+          { type: "list", items: ["0.99", { leaked: true }, "Detected shipping: USD 1.99", "Comfortable everyday use"] },
+          { type: "table", rows: { aliexpress: { price: 0.99 }, "Detected item cost": "USD 0.99", Material: "ABS" } },
+          "Invite shoppers to choose the variant that fits their needs. Add verified reviews only after import."
+        ]
+      }]
+    });
+    expect(html).toContain("Comfortable everyday use");
+    expect(html).toContain("Material");
+    expect(html).not.toContain("0.99");
+    expect(html).not.toContain("Detected shipping");
+    expect(html).not.toContain("Detected item cost");
+    expect(html).not.toContain("aliexpress");
+    expect(html).not.toContain("[object Object]");
+    expect(html).not.toContain("Add verified reviews only after import");
   });
 
   it("extracts public JSON-LD product pages without credentials", async () => {

@@ -28,6 +28,35 @@ function conciseProductName(value: string): string {
   return (cleaned || value).split(" ").slice(0, 5).join(" ");
 }
 
+function sourceSentence(value: string | null | undefined, fallback: string): string {
+  const sentence = value?.replace(/\s+/g, " ").split(/[.!?]/).find((item) => item.trim().length > 30)?.trim();
+  return sentence ? `${sentence}.` : fallback;
+}
+
+function displayFactValues(input: SourceProduct): string[] {
+  const blocked = /^(price|shipping|cost|description)$/i;
+  return input.facts
+    .filter((fact) => !blocked.test(fact.field))
+    .map((fact) => fact.value)
+    .filter((value): value is string | number | boolean => ["string", "number", "boolean"].includes(typeof value))
+    .map(String)
+    .filter((value) => value.trim().length > 2 && !/^\d+(\.\d+)?$/.test(value))
+    .slice(0, 3);
+}
+
+function displaySpecs(input: SourceProduct): Record<string, string> {
+  const rows: Record<string, string> = { "Product type": conciseProductName(input.sourceTitle) };
+  const variant = input.variants[0];
+  if (variant?.title && variant.title !== "Default") rows["Available option"] = variant.title;
+  for (const [key, value] of Object.entries(input.attributes)) {
+    if (Object.keys(rows).length >= 5) break;
+    if (/aliexpress|price|shipping|cost/i.test(key)) continue;
+    if (!["string", "number", "boolean"].includes(typeof value)) continue;
+    rows[key] = String(value);
+  }
+  return rows;
+}
+
 export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     const rawProductType = String(input.source.facts.find((fact) => fact.field === "product_type")?.value ?? input.source.sourceTitle ?? "Product");
@@ -36,9 +65,15 @@ export class MockAiProvider implements AiProvider {
     const selectedTitle = `${brandName} - ${productType}`;
     const factIds = input.source.facts.map((fact) => fact.factId);
     const media = input.source.media.slice(0, 5);
-    const imageBlock = (index: number, alt: string) => media[index] ? { type: "image", url: media[index].url, alt } : `Add supplier image ${index + 1} after media rights review.`;
-    const packageItems = input.source.packageContents?.length ? input.source.packageContents : ["Confirm package contents from supplier before publishing."];
-    const specs = Object.keys(input.source.attributes).length ? input.source.attributes : { Source: input.source.platform, "Item cost": `${input.source.currency} ${input.source.variants[0]?.itemCost ?? 0}` };
+    const imageBlock = (index: number, alt: string) => media[index] ? { type: "image", url: media[index].url, alt } : null;
+    const packageItems = input.source.packageContents?.length ? input.source.packageContents : [`${productType} product`];
+    const specs = displaySpecs(input.source);
+    const featureBullets = displayFactValues(input.source).concat([
+      "Simple design for everyday use",
+      "Clear product details for easier buying decisions",
+      "Multiple product images available for review"
+    ]).slice(0, 4);
+    const intro = sourceSentence(input.source.sourceDescriptionText, `${productType} is designed for shoppers who want a practical product that is easy to understand, compare, and use.`);
     return GeneratedListingSchema.parse({
       category: "General merchandise",
       subcategory: null,
@@ -53,26 +88,26 @@ export class MockAiProvider implements AiProvider {
         { title: `${productType} with Supplier-Verified Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: productType, riskNotes: [] }
       ],
       selectedTitle,
-      subtitle: "A source-backed product page draft with editable modules, supplier media, and conservative claims.",
-      heroBenefits: ["Supplier media included for review", "Price range based on detected landed cost", "Claims tied to extracted facts", "Editable HTML modules for store publishing"],
+      subtitle: `${productType} combines practical design with straightforward everyday use.`,
+      heroBenefits: featureBullets.slice(0, 4),
       sections: [
-        { key: "product-hero", type: "hero", heading: `Meet ${productType}`, blocks: [imageBlock(0, `${productType} hero image`), `${selectedTitle} gives shoppers a clear, visual introduction to the product before they read deeper details.`], mediaAssetIds: media[0] ? ["media-1"] : [], factIds },
-        { key: "trust-strip", type: "trust", heading: "What You Can Review First", blocks: [{ type: "list", items: ["Supplier facts extracted", "Media requires rights review", "No fake reviews or unsupported badges added"] }], factIds },
-        { key: "problem-outcome", type: "problem", heading: "A Practical Everyday Upgrade", blocks: [`Use this section to connect the shopper's practical need to the outcome this ${productType.toLowerCase()} can support, without promising unverified results.`], factIds },
-        { key: "product-demo", type: "demo", heading: "See The Details Up Close", blocks: [imageBlock(1, `${productType} detail image`), "Show the product in use with supplier media or merchant-owned demo content."], mediaAssetIds: media[1] ? ["media-2"] : [], factIds },
-        { key: "three-core-benefits", type: "benefits", heading: "Why It Stands Out", blocks: [{ type: "list", items: input.source.facts.slice(0, 3).map((fact) => String(fact.value)).concat(["Clear product details"]).slice(0, 3) }, imageBlock(2, `${productType} feature image`)], mediaAssetIds: media[2] ? ["media-3"] : [], factIds },
-        { key: "how-it-works", type: "how-it-works", heading: "Simple To Use", blocks: ["Explain setup, use, and care steps using only supplier-confirmed details."], factIds },
-        { key: "why-choose", type: "comparison", heading: "Clear Value Before You Publish", blocks: [imageBlock(3, `${productType} lifestyle image`), { type: "table", rows: { "Detected item cost": `${input.source.currency} ${input.source.variants[0]?.itemCost ?? 0}`, "Detected shipping": `${input.source.shippingQuotes[0]?.currency ?? input.source.currency} ${input.source.shippingQuotes[0]?.cost ?? "Needs review"}`, "Suggested range": `$${input.pricing.lowPrice} - $${input.pricing.highPrice}` } }], mediaAssetIds: media[3] ? ["media-4"] : [], factIds },
-        { key: "customer-proof", type: "placeholder", heading: "Customer Feedback Notes", blocks: ["Add only merchant-verified reviews, UGC, or purchase counts here. No social proof was generated because no verifiable review data was extracted."], factIds: [], placeholder: true },
+        { key: "product-hero", type: "hero", heading: `Meet ${productType}`, blocks: [imageBlock(0, `${productType} hero image`), intro], mediaAssetIds: media[0] ? ["media-1"] : [], factIds },
+        { key: "trust-strip", type: "trust", heading: "What makes it easy to choose?", blocks: [{ type: "list", items: featureBullets.slice(0, 3) }], factIds },
+        { key: "problem-outcome", type: "problem", heading: "Want a simpler everyday solution?", blocks: [`${productType} helps present a clear answer for shoppers who want a useful product without confusing setup or unnecessary extras.`], factIds },
+        { key: "product-demo", type: "demo", heading: "See the details up close", blocks: [imageBlock(1, `${productType} detail image`), "Use the product images to show shape, finish, controls, and included details before shoppers reach the specifications."], mediaAssetIds: media[1] ? ["media-2"] : [], factIds },
+        { key: "three-core-benefits", type: "benefits", heading: "Why shoppers will care", blocks: [{ type: "list", items: featureBullets.slice(0, 3) }, imageBlock(2, `${productType} feature image`)], mediaAssetIds: media[2] ? ["media-3"] : [], factIds },
+        { key: "how-it-works", type: "how-it-works", heading: "How it fits into daily use", blocks: [`Keep ${productType.toLowerCase()} within reach, choose the option that matches your needs, and follow the supplier instructions included with the product.`], factIds },
+        { key: "why-choose", type: "comparison", heading: "A clear choice for practical buyers", blocks: [imageBlock(3, `${productType} lifestyle image`), { type: "list", items: ["Easy to compare from the product images", "Straightforward details before checkout", "Built around practical everyday use"] }], mediaAssetIds: media[3] ? ["media-4"] : [], factIds },
+        { key: "customer-proof", type: "placeholder", heading: "Review with confidence", blocks: ["The page keeps product details conservative and easy to verify, so store owners can add real customer reviews later when they have them."], factIds: [], placeholder: true },
         { key: "specifications", type: "specifications", heading: "Product Details", blocks: [{ type: "table", rows: specs }], factIds },
         { key: "package-contents", type: "package", heading: "Package Includes", blocks: [{ type: "list", items: packageItems }], factIds },
-        { key: "guarantee-faq", type: "faq", heading: "Before You Buy", blocks: ["Add the store's real return, support, and warranty policy here before publishing."], factIds },
-        { key: "final-cta-reviews", type: "cta", heading: "Ready For Your Store", blocks: [imageBlock(4, `${productType} final product image`), "Invite shoppers to choose the variant that fits their needs. Add verified reviews only after import."], mediaAssetIds: media[4] ? ["media-5"] : [], factIds }
+        { key: "guarantee-faq", type: "faq", heading: "Before you buy", blocks: [`Check the selected option, review the product images, and confirm ${productType.toLowerCase()} matches your intended use before checkout.`], factIds },
+        { key: "final-cta-reviews", type: "cta", heading: `Ready to try ${productType}?`, blocks: [imageBlock(4, `${productType} final product image`), "Choose the option that fits your needs and review the product details before ordering."], mediaAssetIds: media[4] ? ["media-5"] : [], factIds }
       ],
       faq: [
         { question: "What is this product?", answer: `It is listed by the supplier as: ${productType}.`, factIds },
         { question: "Are the images ready to publish?", answer: "They are supplier media links and should be reviewed for store usage rights before publishing.", factIds },
-        { question: "What price range is suggested?", answer: `The estimated suggested range is $${input.pricing.lowPrice} to $${input.pricing.highPrice}, based on landed cost inputs.`, factIds }
+        { question: "What should I check before publishing?", answer: "Confirm variant names, package contents, media rights, and any store policy details before the listing goes live.", factIds }
       ],
       seo: {
         metaTitle: selectedTitle.slice(0, 60),

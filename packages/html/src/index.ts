@@ -11,25 +11,42 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function cleanText(value: unknown): string | null {
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
+  const text = String(value).replace(/\s+/g, " ").trim();
+  if (!text || text === "[object Object]" || /^\d+(\.\d+)?$/.test(text)) return null;
+  if (/detected item cost|detected shipping|suggested range|aliexpress:|add verified reviews only after import/i.test(text)) return null;
+  return text;
+}
+
 function renderBlock(block: unknown): string {
-  if (typeof block === "string") return `<p style="text-align: left;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(block)}</span></p>`;
+  const text = cleanText(block);
+  if (text) return `<p style="text-align: left;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(text)}</span></p>`;
   if (!block || typeof block !== "object") return "";
   const record = block as Record<string, unknown>;
   if (record.type === "list" && Array.isArray(record.items)) {
-    return record.items.map((item) => `<p><span style="font-size: 16px; color: ${blue};">✅ ${escapeHtml(String(item))}</span></p>`).join("");
+    return record.items.flatMap((item) => {
+      const itemText = cleanText(item);
+      return itemText ? [`<p><span style="font-size: 16px; color: ${blue};">✅ ${escapeHtml(itemText)}</span></p>`] : [];
+    }).join("");
   }
   if (record.type === "image" && typeof record.url === "string") {
     return `<p style="text-align: center;"><span style="font-size: 16px; color: ${blue};"><img style="display: block; margin: 0 auto; max-width: 100%; width: 1000px; height: auto;" src="${escapeHtml(record.url)}" alt="${escapeHtml(String(record.alt ?? ""))}" loading="lazy" /></span></p>`;
   }
   if (record.type === "quote" && typeof record.text === "string") {
-    return `<p style="text-align: center;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(record.text)}</span></p>`;
+    const quote = cleanText(record.text);
+    return quote ? `<p style="text-align: center;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(quote)}</span></p>` : "";
   }
   if (record.type === "table" && record.rows && typeof record.rows === "object") {
     return Object.entries(record.rows as Record<string, unknown>)
-      .map(([key, value]) => `<p><span style="font-size: 16px; color: ${blue};">✅ <strong>${escapeHtml(key)}</strong>: ${escapeHtml(String(value))}</span></p>`)
+      .flatMap(([key, value]) => {
+        const valueText = cleanText(value);
+        if (!valueText || /detected item cost|detected shipping|suggested range|aliexpress/i.test(key)) return [];
+        return [`<p><span style="font-size: 16px; color: ${blue};">✅ <strong>${escapeHtml(key)}</strong>: ${escapeHtml(valueText)}</span></p>`];
+      })
       .join("");
   }
-  return `<p style="text-align: left;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(JSON.stringify(record))}</span></p>`;
+  return "";
 }
 
 export function sanitizeHtml(html: string): string {
