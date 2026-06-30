@@ -130,7 +130,7 @@ describe("fixture pipeline", () => {
     globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ riskLevel: "low", titleCandidates: ["bad"] }) } }] }), { status: 200 });
     try {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
-      expect(listing.compliance.warnings).toContain("AI provider response did not match the required schema; deterministic fallback draft was used.");
+      expect(listing.compliance.warnings.some((warning) => warning.startsWith("AI provider response did not match the required schema:"))).toBe(true);
     } finally {
       globalThis.fetch = oldFetch;
     }

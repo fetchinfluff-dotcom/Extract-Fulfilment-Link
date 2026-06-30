@@ -122,9 +122,10 @@ export class OpenAiCompatibleProvider implements AiProvider {
                 SOURCE_PRODUCT: input.source,
                 PRICING_RESULT: input.pricing,
                 BRAND_PROFILE: input.brandProfile ?? {},
-              REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "faq", "seo", "compliance", "factReferences"],
-              REQUIRED_DESCRIPTION_MODULES: ["Product Hero", "Trust Strip", "Problem/Outcome", "Product Demo", "Three Core Benefits", "How It Works", "Why Choose This Product", "Customer Proof", "Specifications", "Package Contents", "Guarantee + FAQ", "Final CTA + Reviews"],
-              TITLE_FORMULA: "[Brand/Product Name] - [Product type or main benefit]",
+                REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "faq", "seo", "compliance", "factReferences"],
+                REQUIRED_DESCRIPTION_MODULES: ["Product Hero", "Trust Strip", "Problem/Outcome", "Product Demo", "Three Core Benefits", "How It Works", "Why Choose This Product", "Customer Proof", "Specifications", "Package Contents", "Guarantee + FAQ", "Final CTA + Reviews"],
+                CARDINALITY_RULES: "titleCandidates must contain at least 5 objects. heroBenefits must contain 3 to 5 strings. sections must contain all 12 required modules. faq should contain 3 to 6 objects.",
+                TITLE_FORMULA: "[Brand/Product Name] - [Product type or main benefit]",
               SOCIAL_PROOF_RULE: "Only include ratings, review counts, purchases, guarantees, certifications, or urgency when SOURCE_PRODUCT facts prove them.",
               JSON_SHAPE: {
                 category: "string",
@@ -154,7 +155,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       if (!content) return aiFallback(input, "AI provider returned an empty response; deterministic fallback draft was used.");
       const parsed = GeneratedListingSchema.safeParse(unwrapGeneratedListing(parseJsonObjectContent(content)));
       if (parsed.success) return parsed.data;
-      return aiFallback(input, "AI provider response did not match the required schema; deterministic fallback draft was used.");
+      return aiFallback(input, `AI provider response did not match the required schema: ${summarizeSchemaIssues(parsed.error.issues)}; deterministic fallback draft was used.`);
     } catch {
       return aiFallback(input, "AI provider request failed or timed out; deterministic fallback draft was used.");
     } finally {
@@ -226,4 +227,8 @@ function unwrapGeneratedListing(value: unknown): unknown {
     if (record[key]) return record[key];
   }
   return value;
+}
+
+function summarizeSchemaIssues(issues: Array<{ path: PropertyKey[]; message: string }>): string {
+  return issues.slice(0, 3).map((issue) => `${issue.path.map(String).join(".") || "root"} ${issue.message}`).join("; ");
 }
