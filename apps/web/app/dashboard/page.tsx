@@ -14,7 +14,7 @@ export default function DashboardPage() {
       <div className="grid two">
         <Card>
           <h2>Recent projects</h2>
-          <p className="muted">Create a fixture project to see extraction, pricing, generation, editor, and export.</p>
+          <p className="muted">Import a supplier product to review extraction, pricing, generation, editor, and export.</p>
           <Link href="/new">Start import</Link>
         </Card>
         <Card>

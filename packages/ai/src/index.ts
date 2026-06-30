@@ -147,6 +147,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
 }
 
 export function createAiProvider(env: AppEnv): AiProvider {
+  if (env.NODE_ENV === "production" && env.AI_MOCK_MODE) throw new Error("AI_MOCK_MODE must be false in production.");
   return env.AI_MOCK_MODE ? new MockAiProvider() : new OpenAiCompatibleProvider(env);
 }
 

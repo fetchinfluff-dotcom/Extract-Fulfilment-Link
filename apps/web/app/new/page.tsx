@@ -6,7 +6,7 @@ import { Card, Field } from "@listingforge/ui";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const [sourceUrl, setSourceUrl] = useState("https://mock.listingforge.local/products/collapsible-lamp");
+  const [sourceUrl, setSourceUrl] = useState("https://www.aliexpress.com/item/1005008809640384.html");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +31,7 @@ export default function NewProjectPage() {
     <main className="shell">
       <h1>New product wizard</h1>
       <div className="timeline">
-        {["Validate URL", "Extract fixture", "Calculate price", "Generate draft", "Prepare preview"].map((stage) => <span className="lf-badge lf-badge-neutral" key={stage}>{stage}</span>)}
+        {["Validate URL", "Extract source data", "Calculate price", "Generate draft", "Prepare preview"].map((stage) => <span className="lf-badge lf-badge-neutral" key={stage}>{stage}</span>)}
       </div>
       <Card>
         <Field label="Supplier URL">

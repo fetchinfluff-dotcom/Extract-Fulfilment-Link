@@ -38,16 +38,22 @@ export default function ProjectPage() {
   const [project, setProject] = useState<ProjectPayload | null>(null);
   const [html, setHtml] = useState("");
   const [saved, setSaved] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const id = params.projectId;
     setProjectId(id);
     fetch(`/api/projects/${id}`)
-      .then((response) => response.json())
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error?.message ?? "Project could not be loaded.");
+        return payload as ProjectPayload;
+      })
       .then((payload: ProjectPayload) => {
         setProject(payload);
         setHtml(payload.html);
-      });
+      })
+      .catch((loadError: Error) => setError(loadError.message));
   }, [params.projectId]);
 
   async function saveHtml() {
@@ -62,6 +68,7 @@ export default function ProjectPage() {
     setSaved(new Date().toLocaleTimeString());
   }
 
+  if (error) return <main className="shell"><Card><h1>Project unavailable</h1><p className="muted">{error}</p></Card></main>;
   if (!project) return <main className="shell"><Card>Loading project...</Card></main>;
 
   return (

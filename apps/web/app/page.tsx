@@ -20,11 +20,11 @@ export default function HomePage() {
           Extract product facts, organize usable media, calculate a pricing range, and generate editable SEO-ready product content without fake reviews or unsupported claims.
         </p>
         <div>
-          <Link className="lf-button" href="/new">Start with a fixture URL</Link>
+          <Link className="lf-button" href="/new">Start product import</Link>
         </div>
       </section>
       <section className="grid two">
-        {["Facts and provenance", "SSRF-safe URL intake", "Mock AI with schema validation", "Sanitized HTML export"].map((item) => (
+        {["Facts and provenance", "SSRF-safe URL intake", "Schema-validated AI", "Sanitized HTML export"].map((item) => (
           <Card key={item}>
             <h2>{item}</h2>
             <p className="muted">Built into the runnable MVP path.</p>
