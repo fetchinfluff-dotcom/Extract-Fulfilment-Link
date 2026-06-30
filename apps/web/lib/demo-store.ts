@@ -82,7 +82,7 @@ export function exportProject(project: DemoProject, format: "html" | "json" | "c
 
 function supabase(env: ReturnType<typeof loadEnv>): { url: string; key: string } | null {
   const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SECRET_KEY;
+  const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
   if (env.NODE_ENV !== "production") return null;
   if (!url || !key) throw new Error("Supabase persistence is not configured.");
   return { url: url.replace(/\/$/, ""), key };
