@@ -92,11 +92,16 @@ describe("fixture pipeline", () => {
     const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
     const expected = await new MockAiProvider().generateListing({ source, pricing });
     const oldFetch = globalThis.fetch;
-    globalThis.fetch = async () =>
-      new Response(`${JSON.stringify({ choices: [{ message: { content: `Here is the draft:\n\`\`\`json\n${JSON.stringify(expected)}\n\`\`\`\n{"ignored":true}` } }] })}\n{"event":"done"}`, { status: 200 });
+    let prompt = "";
+    globalThis.fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      prompt = body.messages[1].content;
+      return new Response(`${JSON.stringify({ choices: [{ message: { content: `Here is the draft:\n\`\`\`json\n${JSON.stringify(expected)}\n\`\`\`\n{"ignored":true}` } }] })}\n{"event":"done"}`, { status: 200 });
+    };
     try {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
       expect(listing.selectedTitle).toBe(expected.selectedTitle);
+      expect(prompt).not.toContain("\"attributes\"");
     } finally {
       globalThis.fetch = oldFetch;
     }

@@ -118,7 +118,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
             {
               role: "user",
               content: JSON.stringify({
-                SOURCE_PRODUCT: input.source,
+                SOURCE_PRODUCT: sourceBrief(input.source),
                 PRICING_RESULT: input.pricing,
                 BRAND_PROFILE: input.brandProfile ?? {},
                 REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "faq", "seo", "compliance", "factReferences"],
@@ -217,6 +217,25 @@ function parseJsonObjectContent(value: string): unknown {
   }
 
   throw new Error("AI provider returned incomplete JSON.");
+}
+
+function sourceBrief(source: SourceProduct): unknown {
+  return {
+    platform: source.platform,
+    canonicalUrl: source.canonicalUrl,
+    sourceProductId: source.sourceProductId,
+    sourceTitle: source.sourceTitle,
+    sourceDescriptionText: source.sourceDescriptionText,
+    currency: source.currency,
+    variants: source.variants.slice(0, 5),
+    shippingQuotes: source.shippingQuotes.slice(0, 3),
+    media: source.media.slice(0, 8),
+    packageContents: source.packageContents,
+    instructions: source.instructions,
+    facts: source.facts,
+    warnings: source.warnings,
+    confidence: source.confidence
+  };
 }
 
 function unwrapGeneratedListing(value: unknown): unknown {
