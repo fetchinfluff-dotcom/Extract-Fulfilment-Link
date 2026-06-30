@@ -58,6 +58,7 @@
 - Production verify after compact AI prompt: `POST /api/projects` with `https://www.aliexpress.com/item/1005008809640384.html` -> 201, project `a4294a80-69d9-4cf4-9c4b-915d762a6102`, extraction/persistence OK, AI fallback due provider timeout.
 - Production verify after split AI patch generation: same AliExpress URL -> 201 in about 23s, project `c2f856d8-6c18-44ce-bac3-9460c4fd1760`, section patches applied, title/FAQ patches fell back.
 - Production verify after description/UI refinement: project `f4b5153d-cd8e-48f3-8f3b-83670b8c8bcd` has 5 responsive images with alt text, no hardcoded guarantee block, no technical module headings, media buttons, and compliance status log.
+- Production verify after Stitch SaaS UI frame: `GET /`, `/dashboard`, and `/new` -> 200; landing and import pages include the new workspace frame content.
 - Supabase verify: project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269` persisted with 1 source snapshot, 1 generated version, and active version set.
 - Production note: AliExpress `.us` links are allowed; a fake item URL hit the safe redirect limit.
 - Optional local app: `pnpm dev`
