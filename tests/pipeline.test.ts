@@ -125,17 +125,20 @@ describe("fixture pipeline", () => {
     }
   });
 
-  it("falls back when OpenAI-compatible responses fail schema validation", async () => {
+  it("keeps deterministic content when split AI patches fail", async () => {
     const source = await new MockSourceAdapter().extract({
       url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
       targetCountry: "US"
     });
     const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
     const oldFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ riskLevel: "low", titleCandidates: ["bad"] }) } }] }), { status: 200 });
+    globalThis.fetch = async () => {
+      throw new Error("timeout");
+    };
     try {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
-      expect(listing.compliance.warnings.some((warning) => warning.startsWith("AI provider response did not match the required schema:"))).toBe(true);
+      expect(listing.sections).toHaveLength(12);
+      expect(listing.compliance.warnings).toContain("AI title patch timed out or failed.");
     } finally {
       globalThis.fetch = oldFetch;
     }

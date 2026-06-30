@@ -96,10 +96,72 @@ export class OpenAiCompatibleProvider implements AiProvider {
     if (!this.env.AI_BASE_URL || !this.env.AI_API_KEY || !this.env.AI_MODEL_QUALITY) {
       throw new Error("OpenAI-compatible provider requires AI_BASE_URL, AI_API_KEY, and AI_MODEL_QUALITY.");
     }
+    const base = await new MockAiProvider().generateListing(input);
+    const warnings: string[] = [];
+    const common = {
+      SOURCE_PRODUCT: sourceBrief(input.source),
+      PRICING_RESULT: input.pricing,
+      BRAND_PROFILE: input.brandProfile ?? {},
+      RULES: "Return only JSON. Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims."
+    };
+    const sectionChunks = [
+      ["product-hero", "trust-strip", "problem-outcome", "product-demo"],
+      ["three-core-benefits", "how-it-works", "why-choose", "customer-proof"],
+      ["specifications", "package-contents", "guarantee-faq", "final-cta-reviews"]
+    ];
+    const calls = await Promise.allSettled([
+      this.completeJson({
+        ...common,
+        TASK: "Create title, buyer positioning, hero bullets, and SEO fields.",
+        JSON_SHAPE: {
+          selectedTitle: "BrandName - Product type or main benefit",
+          subtitle: "string",
+          targetBuyer: "string",
+          valueProposition: "string",
+          heroBenefits: ["3 to 5 short strings"],
+          titleCandidates: [{ title: "string", pattern: "string", mainKeyword: "string", riskNotes: [] }],
+          seo: { metaTitle: "string", metaDescription: "string", handle: "url-handle" }
+        }
+      }, 900),
+      ...sectionChunks.map((keys) => this.completeJson({
+        ...common,
+        TASK: "Rewrite only these description modules. Keep claims conservative and fact-backed.",
+        SECTION_KEYS: keys,
+        JSON_SHAPE: { sections: [{ key: keys[0], blocks: ["1 to 3 concise strings or list blocks"] }] }
+      }, 1200)),
+      this.completeJson({
+        ...common,
+        TASK: "Create factual FAQ answers only.",
+        JSON_SHAPE: { faq: [{ question: "string", answer: "string", factIds: ["known fact id"] }] }
+      }, 700)
+    ]);
+
+    const titlePatch = calls[0];
+    if (titlePatch.status === "fulfilled") applyTitlePatch(base, titlePatch.value);
+    else warnings.push("AI title patch timed out or failed.");
+
+    for (const call of calls.slice(1, 4)) {
+      if (call.status === "fulfilled") applySectionsPatch(base, call.value);
+      else warnings.push("AI section patch timed out or failed.");
+    }
+
+    const faqPatch = calls.at(4);
+    if (faqPatch?.status === "fulfilled") applyFaqPatch(base, faqPatch.value);
+    else warnings.push("AI FAQ patch timed out or failed.");
+
+    const parsed = GeneratedListingSchema.safeParse({
+      ...base,
+      compliance: { ...base.compliance, warnings: [...base.compliance.warnings, ...warnings] }
+    });
+    if (parsed.success) return parsed.data;
+    return aiFallback(input, `AI patch merge failed schema validation: ${summarizeSchemaIssues(parsed.error.issues)}; deterministic fallback draft was used.`);
+  }
+
+  private async completeJson(payload: unknown, maxTokens: number): Promise<unknown> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.env.AI_TIMEOUT_MS ?? 120_000);
+    const timeout = setTimeout(() => controller.abort(), Math.min(this.env.AI_TIMEOUT_MS ?? 120_000, 35_000));
     try {
-      const response = await fetch(`${this.env.AI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+      const response = await fetch(`${this.env.AI_BASE_URL!.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         signal: controller.signal,
         headers: {
@@ -109,54 +171,17 @@ export class OpenAiCompatibleProvider implements AiProvider {
         body: JSON.stringify({
           model: this.env.AI_MODEL_QUALITY,
           temperature: 0.2,
+          max_tokens: maxTokens,
           messages: [
-            {
-              role: "system",
-              content:
-                "You are ListingForge's product listing generator. Return only JSON matching the GeneratedListing schema. Do not invent reviews, ratings, guarantees, certifications, shipping times, or unsupported claims."
-            },
-            {
-              role: "user",
-              content: JSON.stringify({
-                SOURCE_PRODUCT: sourceBrief(input.source),
-                PRICING_RESULT: input.pricing,
-                BRAND_PROFILE: input.brandProfile ?? {},
-                REQUIRED_TOP_LEVEL_KEYS: ["category", "riskLevel", "titleCandidates", "selectedTitle", "subtitle", "heroBenefits", "sections", "faq", "seo", "compliance", "factReferences"],
-                REQUIRED_DESCRIPTION_MODULES: ["Product Hero", "Trust Strip", "Problem/Outcome", "Product Demo", "Three Core Benefits", "How It Works", "Why Choose This Product", "Customer Proof", "Specifications", "Package Contents", "Guarantee + FAQ", "Final CTA + Reviews"],
-                CARDINALITY_RULES: "titleCandidates must contain at least 5 objects. heroBenefits must contain 3 to 5 strings. sections must contain all 12 required modules. faq should contain 3 to 6 objects.",
-                TITLE_FORMULA: "[Brand/Product Name] - [Product type or main benefit]",
-              SOCIAL_PROOF_RULE: "Only include ratings, review counts, purchases, guarantees, certifications, or urgency when SOURCE_PRODUCT facts prove them.",
-              JSON_SHAPE: {
-                category: "string",
-                subcategory: null,
-                riskLevel: "LOW",
-                targetBuyer: "string",
-                valueProposition: "string",
-                titleCandidates: [{ title: "string", pattern: "string", mainKeyword: "string", riskNotes: [] }],
-                selectedTitle: "string",
-                subtitle: "string",
-                heroBenefits: ["string", "string", "string"],
-                sections: [{ key: "product-hero", type: "hero", heading: "Product Hero", blocks: ["string"], mediaAssetIds: ["media-1"], factIds: ["fact-id"], placeholder: false }],
-                faq: [{ question: "string", answer: "string", factIds: ["fact-id"] }],
-                seo: { metaTitle: "string", metaDescription: "string", handle: "string", imageAltTexts: [{ assetId: "media-1", alt: "string" }] },
-                productJsonLdDraft: null,
-                compliance: { warnings: [], unsupportedClaims: [], humanReviewRequired: false },
-                factReferences: [{ claim: "string", factIds: ["fact-id"] }]
-              }
-            })
-          }
-        ]
-      })
+            { role: "system", content: "Return only one JSON object matching the requested JSON_SHAPE." },
+            { role: "user", content: JSON.stringify(payload) }
+          ]
+        })
       });
-      if (!response.ok) return aiFallback(input, `AI provider returned HTTP ${response.status}; deterministic fallback draft was used.`);
-      const payload = parseOpenAiResponse(await response.text());
-      const content = payload.choices?.[0]?.message?.content;
-      if (!content) return aiFallback(input, "AI provider returned an empty response; deterministic fallback draft was used.");
-      const parsed = GeneratedListingSchema.safeParse(unwrapGeneratedListing(parseJsonObjectContent(content)));
-      if (parsed.success) return parsed.data;
-      return aiFallback(input, `AI provider response did not match the required schema: ${summarizeSchemaIssues(parsed.error.issues)}; deterministic fallback draft was used.`);
-    } catch {
-      return aiFallback(input, "AI provider request failed or timed out; deterministic fallback draft was used.");
+      if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
+      const content = parseOpenAiResponse(await response.text()).choices?.[0]?.message?.content;
+      if (!content) throw new Error("AI provider returned an empty response.");
+      return parseJsonObjectContent(content);
     } finally {
       clearTimeout(timeout);
     }
@@ -238,13 +263,65 @@ function sourceBrief(source: SourceProduct): unknown {
   };
 }
 
-function unwrapGeneratedListing(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = value as Record<string, unknown>;
-  for (const key of ["listing", "generatedListing", "productListing", "data"]) {
-    if (record[key]) return record[key];
+function applyTitlePatch(listing: GeneratedListing, value: unknown): void {
+  if (!isRecord(value)) return;
+  if (typeof value.selectedTitle === "string") listing.selectedTitle = value.selectedTitle.slice(0, 160);
+  if (typeof value.subtitle === "string") listing.subtitle = value.subtitle.slice(0, 220);
+  if (typeof value.targetBuyer === "string") listing.targetBuyer = value.targetBuyer.slice(0, 180);
+  if (typeof value.valueProposition === "string") listing.valueProposition = value.valueProposition.slice(0, 300);
+  if (Array.isArray(value.heroBenefits) && value.heroBenefits.length >= 3) {
+    listing.heroBenefits = value.heroBenefits.map(String).slice(0, 5);
   }
-  return value;
+  if (Array.isArray(value.titleCandidates) && value.titleCandidates.length >= 5) {
+    listing.titleCandidates = value.titleCandidates.slice(0, 5).map((item) => {
+      const record = isRecord(item) ? item : {};
+      return {
+        title: String(record.title ?? listing.selectedTitle),
+        pattern: String(record.pattern ?? "[Brand/Product Name] - [Product type or main benefit]"),
+        mainKeyword: typeof record.mainKeyword === "string" ? record.mainKeyword : null,
+        riskNotes: Array.isArray(record.riskNotes) ? record.riskNotes.map(String) : []
+      };
+    });
+  }
+  if (isRecord(value.seo)) {
+    listing.seo = {
+      ...listing.seo,
+      metaTitle: typeof value.seo.metaTitle === "string" ? value.seo.metaTitle.slice(0, 70) : listing.seo.metaTitle,
+      metaDescription: typeof value.seo.metaDescription === "string" ? value.seo.metaDescription.slice(0, 170) : listing.seo.metaDescription,
+      handle: typeof value.seo.handle === "string" ? slugify(value.seo.handle) : listing.seo.handle
+    };
+  }
+}
+
+function applySectionsPatch(listing: GeneratedListing, value: unknown): void {
+  if (!isRecord(value) || !Array.isArray(value.sections)) return;
+  for (const patch of value.sections) {
+    if (!isRecord(patch) || typeof patch.key !== "string" || !Array.isArray(patch.blocks)) continue;
+    const section = listing.sections.find((item) => item.key === patch.key);
+    if (!section) continue;
+    const fixedBlocks = section.blocks.filter((block) => isRecord(block) && (block.type === "image" || block.type === "table"));
+    section.blocks = [...fixedBlocks, ...patch.blocks.map(cleanBlock).filter(Boolean)].slice(0, 4);
+  }
+}
+
+function applyFaqPatch(listing: GeneratedListing, value: unknown): void {
+  if (!isRecord(value) || !Array.isArray(value.faq)) return;
+  const faq = value.faq.slice(0, 6).flatMap((item) => {
+    if (!isRecord(item) || typeof item.question !== "string" || typeof item.answer !== "string") return [];
+    return [{ question: item.question, answer: item.answer, factIds: Array.isArray(item.factIds) ? item.factIds.map(String) : [] }];
+  });
+  if (faq.length) listing.faq = faq;
+}
+
+function cleanBlock(block: unknown): unknown {
+  if (typeof block === "string") return block.slice(0, 900);
+  if (!isRecord(block)) return null;
+  if (block.type === "list" && Array.isArray(block.items)) return { type: "list", items: block.items.map(String).slice(0, 6) };
+  return typeof block.text === "string" ? block.text.slice(0, 900) : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function summarizeSchemaIssues(issues: Array<{ path: PropertyKey[]; message: string }>): string {
