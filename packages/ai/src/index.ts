@@ -20,9 +20,18 @@ function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 70);
 }
 
+function conciseProductName(value: string): string {
+  const cleaned = value
+    .replace(/\s+/g, " ")
+    .replace(/\b(for|with|kit|set|accessories|portable|new|hot sale)\b[\s\S]*$/i, "")
+    .trim();
+  return (cleaned || value).split(" ").slice(0, 5).join(" ");
+}
+
 export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
-    const productType = String(input.source.facts.find((fact) => fact.field === "product_type")?.value ?? "Product");
+    const rawProductType = String(input.source.facts.find((fact) => fact.field === "product_type")?.value ?? input.source.sourceTitle ?? "Product");
+    const productType = conciseProductName(rawProductType);
     const brandName = `${slugify(productType).split("-").filter(Boolean)[0]?.slice(0, 8) || "Nova"}Pro`;
     const selectedTitle = `${brandName} - ${productType}`;
     const factIds = input.source.facts.map((fact) => fact.factId);

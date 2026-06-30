@@ -16,7 +16,9 @@ describe("fixture pipeline", () => {
     const listing = await new MockAiProvider().generateListing({ source, pricing });
     expect(GeneratedListingSchema.safeParse(listing).success).toBe(true);
     const html = renderListingHtml(listing);
+    expect(listing.selectedTitle.length).toBeLessThan(80);
     expect(html).toContain("lf-product-description");
+    expect(html).toContain("max-width: 100%");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");
   });
 
