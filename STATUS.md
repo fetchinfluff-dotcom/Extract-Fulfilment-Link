@@ -30,7 +30,7 @@
 - Public supplier extraction can work without credentials when the page exposes HTML/JSON-LD or AliExpress mtop data.
 - Supplier API credentials are still useful for richer variants, shipping, rate limits, and fewer blocked pages.
 - The provided JWT decodes as `anon`, not `service_role`; production persistence uses the server-only Supabase secret API key. Rotate pasted keys before real customer traffic.
-- OpenAI-compatible generation is enabled in production with compact source prompts and configurable timeout, but the latest Tramai acceptance run still fell back after provider timeout.
+- OpenAI-compatible generation is split into small schema patches. Latest Tramai acceptance run completed in about 23s; section patches applied, title/FAQ patches still fell back.
 - `pnpm worker:dev` requires Redis on localhost:6379; it starts but cannot process jobs locally until Redis is running.
 
 ## Verification Commands
@@ -45,6 +45,7 @@
 - Passed after production hardening: `pnpm test` (3 files, 9 tests) and `pnpm build`
 - Passed after Supabase persistence repair: `pnpm lint`, `pnpm typecheck`, `pnpm test` (3 files, 10 tests), `pnpm build`, `pnpm e2e`
 - Passed after AI prompt hardening: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`
+- Passed after split AI patch generation: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
@@ -53,6 +54,7 @@
 - Production verify: `GET /projects/791ab5eb-0217-4bbc-86a9-b6eb1f57a269` -> 200
 - Production verify: `GET /api/projects/791ab5eb-0217-4bbc-86a9-b6eb1f57a269/export/json` -> 200
 - Production verify after compact AI prompt: `POST /api/projects` with `https://www.aliexpress.com/item/1005008809640384.html` -> 201, project `a4294a80-69d9-4cf4-9c4b-915d762a6102`, extraction/persistence OK, AI fallback due provider timeout.
+- Production verify after split AI patch generation: same AliExpress URL -> 201 in about 23s, project `c2f856d8-6c18-44ce-bac3-9460c4fd1760`, section patches applied, title/FAQ patches fell back.
 - Supabase verify: project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269` persisted with 1 source snapshot, 1 generated version, and active version set.
 - Production note: AliExpress `.us` links are allowed; a fake item URL hit the safe redirect limit.
 - Optional local app: `pnpm dev`
