@@ -20,6 +20,7 @@
 - [ ] Supabase Auth/session wiring for real users.
 - [x] Database-backed project lifecycle for production imports and generated versions.
 - [x] Stitch ListingForge SaaS interface frame applied to landing, dashboard, and import flow.
+- [x] Project editor/detail page uses the same dashboard shell and sidebar frame.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
 - [ ] Rich supplier extraction for all dynamic variants and fallback suppliers when public pages omit data.
@@ -48,6 +49,7 @@
 - Passed after AI prompt hardening: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`
 - Passed after split AI patch generation: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`
 - Passed after Stitch SaaS UI frame: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`, `pnpm e2e`
+- Passed after project editor shell sync: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`, `pnpm e2e`, `pnpm lint`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
