@@ -3,10 +3,10 @@
 ## Architecture Decisions
 
 - pnpm workspace + Turborepo monorepo with `apps/web`, `apps/worker`, and shared packages.
-- Fixture-first MVP path: `MockSourceAdapter` -> pricing -> mock AI provider -> deterministic sanitized HTML -> editor/export.
+- Production MVP path: source URL -> supplier adapter -> pricing -> OpenAI-compatible AI provider with schema fallback -> deterministic sanitized HTML -> Supabase persistence -> editor/export.
 - Supplier integrations stay behind `SourceAdapter`; AliExpress now uses public page HTML plus mtop product data for title, media, price, and shipping when available.
 - Supabase-compatible schema and RLS migrations live in `packages/db/migrations`.
-- Local demo web uses in-memory storage only; database persistence is the next highest-priority implementation step.
+- Local demo web uses in-memory storage; production project lifecycle is persisted to Supabase `projects`, `source_snapshots`, and `generated_versions`.
 - Production is deployed on Vercel from `fetchinfluff-dotcom/Extract-Fulfilment-Link`.
 
 ## Phase Checklist
@@ -18,7 +18,8 @@
 - [x] Phase 4: AI provider abstraction, mock provider, structured validation, HTML renderer/sanitizer.
 - [x] Phase 5: three-pane editor, server-side sanitized save, HTML/JSON/CSV export.
 - [ ] Supabase Auth/session wiring for real users.
-- [ ] Database-backed project lifecycle and audit logs.
+- [x] Database-backed project lifecycle for production imports and generated versions.
+- [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
 - [ ] Rich supplier extraction for all dynamic variants and fallback suppliers when public pages omit data.
 - [ ] Full billing/Stripe implementation.
@@ -28,9 +29,9 @@
 
 - Public supplier extraction can work without credentials when the page exposes HTML/JSON-LD or AliExpress mtop data.
 - Supplier API credentials are still useful for richer variants, shipping, rate limits, and fewer blocked pages.
-- Supabase production environment variables are present on Vercel, but persistence still requires applying `packages/db/migrations` to the Supabase project. The current Supabase connector account does not have permission on project `ozfoqumrwovdawevpvbn`.
-- The provided JWT decodes as `anon`, not `service_role`; keep the secret API key server-only and rotate pasted keys before real customer traffic.
-- OpenAI-compatible generation is enabled in production. Invalid, wrapped, slow, or timed-out AI responses fall back to a deterministic source-fact draft with a compliance warning.
+- The provided JWT decodes as `anon`, not `service_role`; production persistence uses the server-only Supabase secret API key. Rotate pasted keys before real customer traffic.
+- OpenAI-compatible generation is enabled in production, but the latest acceptance run fell back to a deterministic source-fact draft because the AI response did not match the required schema.
+- `pnpm worker:dev` requires Redis on localhost:6379; it starts but cannot process jobs locally until Redis is running.
 
 ## Verification Commands
 
@@ -42,15 +43,19 @@
 - Passed after public-adapter/AI-provider wiring: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
 - Passed after installing Chromium with `pnpm exec playwright install chromium`: `pnpm e2e`
 - Passed after production hardening: `pnpm test` (3 files, 9 tests) and `pnpm build`
-- Passed after AliExpress extraction update: `pnpm test` (3 files, 10 tests) and `pnpm build`
+- Passed after Supabase persistence repair: `pnpm lint`, `pnpm typecheck`, `pnpm test` (3 files, 10 tests), `pnpm build`, `pnpm e2e`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
-- Production verify: `POST /api/projects` with mock fixture -> 201, project detail page -> 200
+- Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
+- Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008809640384.html` -> 201, project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269`
+- Production verify: `GET /api/projects/791ab5eb-0217-4bbc-86a9-b6eb1f57a269` -> 200 with 7 supplier images, detected item cost USD 0.99, shipping USD 1.99, suggested range USD 8.99-14.99
+- Production verify: `GET /projects/791ab5eb-0217-4bbc-86a9-b6eb1f57a269` -> 200
+- Production verify: `GET /api/projects/791ab5eb-0217-4bbc-86a9-b6eb1f57a269/export/json` -> 200
+- Supabase verify: project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269` persisted with 1 source snapshot, 1 generated version, and active version set.
 - Production note: AliExpress `.us` links are allowed; a fake item URL hit the safe redirect limit.
-- Production note: project read-back is still in-memory on Vercel and needs Supabase persistence for stable shareable project URLs.
 - Optional local app: `pnpm dev`
-- Optional worker: `pnpm worker:dev`
+- Optional worker: `pnpm worker:dev` after starting Redis
 
 ## Working MVP Path
 
-Open `/new`, submit `https://mock.listingforge.local/products/collapsible-lamp`, review source facts/media warnings, pricing, SEO/compliance panels, edit sanitized HTML, and export HTML/JSON/CSV.
+Open `/new`, submit `https://www.aliexpress.com/item/1005008809640384.html`, review source facts/media warnings, pricing, SEO/compliance panels, edit sanitized HTML, and export HTML/JSON/CSV. Use the mock fixture only in local development.
