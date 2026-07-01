@@ -189,6 +189,60 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
   return profiles[category] ?? profiles.general!;
 }
 
+function shopperMoment(category: string): string {
+  return ({
+    beauty: "your self-care routine",
+    wellness: "your comfort routine",
+    tech: "your everyday setup",
+    pet: "your pet-care routine",
+    home: "your home routine",
+    apparel: "your everyday fit"
+  } as Record<string, string>)[category] ?? "daily use";
+}
+
+function salesBlueprint(brief: ProductResearchBrief): {
+  heroLead: string;
+  heroBullets: string[];
+  demoBullets: string[];
+  proofBullets: string[];
+  comparisonRows: Record<string, string>;
+  finalCta: string;
+} {
+  const noun = brief.productType.toLowerCase();
+  const moment = shopperMoment(brief.category);
+  const visibleSpecs = Object.entries(brief.specs)
+    .filter(([key]) => key !== "Product type")
+    .map(([key, value]) => `${key}: ${value}`)
+    .slice(0, 3);
+  return {
+    heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a clear use case, easy-to-check details, and a smoother way to decide if it fits your needs.`,
+    heroBullets: [
+      `Made for ${moment} without a complicated learning curve`,
+      `Product images help shoppers inspect the shape, finish, and included details`,
+      `Simple benefit-led wording explains what the ${noun} is useful for`,
+      `FAQ and specs answer common pre-purchase questions in plain language`
+    ],
+    demoBullets: [
+      `Check the first image for the overall product shape and main use case`,
+      `Review close-up images for texture, controls, fit, or visible construction details`,
+      `Compare available options before choosing the version that matches your routine`,
+      `Use the package and specification details to confirm what is included`
+    ],
+    proofBullets: uniqueStrings([
+      `${brief.media.length} product images available for visual inspection`,
+      ...visibleSpecs,
+      `${brief.packageItems.length} included item${brief.packageItems.length === 1 ? "" : "s"} listed`,
+      "Benefits stay tied to visible product details and supplied facts"
+    ]).slice(0, 5),
+    comparisonRows: {
+      "Basic option": "Lists features but leaves shoppers guessing how the item fits daily use.",
+      [brief.selectedTitle]: `Connects visible details to clear benefits, setup expectations, and buyer questions.`,
+      "Best for": brief.targetBuyer
+    },
+    finalCta: `Choose the option that matches your needs, review the images and included items, then add ${noun} to your routine with a clear idea of what to expect.`
+  };
+}
+
 function buildResearchBrief(input: GenerateInput): ProductResearchBrief {
   const rawProductType = String(input.source.facts.find((fact) => fact.field === "product_type")?.value ?? input.source.sourceTitle ?? "Product");
   const productType = conciseProductName(rawProductType);
@@ -271,13 +325,14 @@ function aiProductBrief(brief: ProductResearchBrief): unknown {
 export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     const brief = buildResearchBrief(input);
+    const copy = salesBlueprint(brief);
     const imageBlock = (index: number, role: string) => brief.media[index] ? { type: "image", url: brief.media[index].url, alt: `${brief.productType} ${role} image`, role } : null;
     return GeneratedListingSchema.parse({
       category: brief.category,
       subcategory: null,
       riskLevel: "LOW",
       targetBuyer: brief.targetBuyer,
-      valueProposition: `${brief.productType} is positioned as a practical, easy-to-review product page with clear benefits and useful images.`,
+      valueProposition: copy.heroLead,
       titleCandidates: [
         { title: brief.selectedTitle, pattern: "[Brand/Product Name] - [Product type or main benefit]", mainKeyword: brief.productType, riskNotes: [] },
         { title: `${brief.brandName} ${brief.productType} for Everyday Use`, pattern: "Brand + product type + use case", mainKeyword: brief.productType, riskNotes: [] },
@@ -286,21 +341,21 @@ export class MockAiProvider implements AiProvider {
         { title: `${brief.productType} with Clear Product Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: brief.productType, riskNotes: [] }
       ],
       selectedTitle: brief.selectedTitle,
-      subtitle: brief.subtitle,
-      heroBenefits: brief.benefits.slice(0, 4),
+      subtitle: `${brief.productType} with clear benefits, visual proof points, and shopper-friendly product details.`,
+      heroBenefits: copy.heroBullets.slice(0, 4),
       sections: [
-        { key: "product-hero", type: "hero", heading: `Meet ${brief.productType}`, blocks: [imageBlock(0, "hero"), brief.intro, { type: "list", items: brief.benefits.slice(0, 3) }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
-        { key: "trust-strip", type: "package", heading: "What comes in the box?", blocks: [{ type: "list", items: brief.packageItems.slice(0, 4) }], factIds: brief.factIds },
-        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
-        { key: "product-demo", type: "demo", heading: brief.outcomeHeading, blocks: [brief.outcomeBody, imageBlock(2, "demo"), brief.demoBody], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
-        { key: "three-core-benefits", type: "benefits", heading: `Why shoppers choose ${brief.productType}`, blocks: [{ type: "list", items: brief.benefits.slice(0, 4) }, imageBlock(3, "benefit")], mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
-        { key: "how-it-works", type: "how-it-works", heading: "How it works in daily use", blocks: [{ type: "list", items: brief.useSteps.slice(0, 3) }], factIds: brief.factIds },
-        { key: "why-choose", type: "comparison", heading: `Why choose ${brief.productType}?`, blocks: [imageBlock(4, "lifestyle"), { type: "list", items: brief.whyChoose.slice(0, 4) }], mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
-        { key: "customer-proof", type: "trust", heading: "Clear details before you buy", blocks: ["The page focuses on practical product details, useful images, and realistic benefits so shoppers can compare the item without exaggerated promises."], factIds: brief.factIds },
+        { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${capitalize(shopperMoment(brief.category))} Easier`, blocks: [imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
+        { key: "trust-strip", type: "package", heading: "What You Can Check Before Ordering", blocks: [{ type: "list", items: copy.proofBullets }], factIds: brief.factIds },
+        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, `${brief.productType} is framed around a simple outcome: less guessing, clearer product details, and a smoother decision for shoppers who want the right fit for their routine.`, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
+        { key: "product-demo", type: "demo", heading: "See The Details Before You Decide", blocks: [brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
+        { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: [{ type: "list", items: brief.benefits.slice(0, 4).map((item) => `${item} - explained in clear, shopper-friendly language.`) }, imageBlock(3, "benefit")], mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
+        { key: "how-it-works", type: "how-it-works", heading: "How It Fits Into Daily Use", blocks: [`Start with the visible product details, then use the simple steps below to understand how ${brief.productType.toLowerCase()} fits into ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")], mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
+        { key: "why-choose", type: "comparison", heading: `Why Choose ${brief.selectedTitle}?`, blocks: [{ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }], factIds: brief.factIds },
+        { key: "customer-proof", type: "trust", heading: "Details You Can Review With Confidence", blocks: [`Shoppers can make a clearer decision by checking the product images, included items, specifications, and realistic use-case details before ordering.`, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
         { key: "specifications", type: "specifications", heading: "Product details", blocks: [{ type: "table", rows: brief.specs }, imageBlock(5, "specification")], mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
-        { key: "package-contents", type: "package", heading: "Package includes", blocks: [{ type: "list", items: brief.packageItems }], factIds: brief.factIds },
-        { key: "guarantee-faq", type: "faq", heading: "Before you buy", blocks: [`Review the selected option, package details, and product images to make sure ${brief.productType.toLowerCase()} matches your intended use.`], factIds: brief.factIds },
-        { key: "final-cta-reviews", type: "cta", heading: `Ready to try ${brief.productType}?`, blocks: [imageBlock(6, "final"), "Choose the option that fits your needs and review the product details before ordering."], mediaAssetIds: brief.media[6] ? ["media-7"] : [], factIds: brief.factIds }
+        { key: "package-contents", type: "package", heading: "Package Includes", blocks: [`Check the selected option and included items so you know exactly what should arrive with your order.`, { type: "list", items: brief.packageItems }], factIds: brief.factIds },
+        { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: [`Review the selected option, package details, and product images to make sure ${brief.productType.toLowerCase()} matches your intended use.`], factIds: brief.factIds },
+        { key: "final-cta-reviews", type: "cta", heading: `Ready To Make ${shopperMoment(brief.category)} Simpler?`, blocks: [imageBlock(6, "final"), copy.finalCta], mediaAssetIds: brief.media[6] ? ["media-7"] : [], factIds: brief.factIds }
       ],
       faq: brief.faq.map((item) => ({ ...item, factIds: brief.factIds })),
       seo: {
