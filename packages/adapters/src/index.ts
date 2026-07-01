@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { AppEnv } from "@listingforge/config";
 import type { SourcePlatform, SourceProduct } from "@listingforge/schemas";
 import { SourceProductSchema } from "@listingforge/schemas";
-import { detectPlatform, validateSourceUrl } from "@listingforge/security";
+import { detectPlatform, validatePublicUrl, validateSourceUrl } from "@listingforge/security";
 import mockProduct from "./mock-product.json" with { type: "json" };
 
 export type ExtractInput = {
@@ -19,6 +19,18 @@ export interface SourceAdapter {
 
 type PublicAdapterEnv = Pick<AppEnv, "ALLOWED_SOURCE_DOMAINS" | "FETCH_TIMEOUT_MS" | "MAX_FETCH_BYTES" | "MAX_URL_REDIRECTS">;
 type AdapterEnv = PublicAdapterEnv & Pick<AppEnv, "FEATURE_CJ_ADAPTER" | "FEATURE_ALIEXPRESS_ADAPTER" | "FEATURE_QKSOURCE_ADAPTER">;
+
+export type ReferencePageAnalysis = {
+  url: string;
+  title: string | null;
+  metaDescription: string | null;
+  headings: string[];
+  imageCount: number;
+  videoCount: number;
+  sectionPatterns: string[];
+  styleSignals: string[];
+  warnings: string[];
+};
 
 abstract class PublicPageAdapter implements SourceAdapter {
   abstract platform: SourcePlatform;
@@ -102,6 +114,71 @@ export function findAdapter(adapters: SourceAdapter[], url: URL): SourceAdapter 
   const adapter = adapters.find((candidate) => candidate.canHandle(url));
   if (!adapter) throw new Error("No adapter can handle this URL.");
   return adapter;
+}
+
+export async function analyzeReferencePages(urls: string[], env: PublicAdapterEnv & Pick<AppEnv, "NODE_ENV">): Promise<ReferencePageAnalysis[]> {
+  const uniqueUrls = [...new Set(urls.map((url) => url.trim()).filter(Boolean))].slice(0, 3);
+  const results = await Promise.all(uniqueUrls.map(async (rawUrl) => {
+    const url = await validatePublicUrl(rawUrl, { skipDns: env.NODE_ENV !== "production", allowHttpLocalhost: env.NODE_ENV !== "production" });
+    const html = await fetchReferenceHtml(url, env);
+    return analyzeReferenceHtml(url, html);
+  }));
+  return results;
+}
+
+async function fetchReferenceHtml(startUrl: URL, env: PublicAdapterEnv & Pick<AppEnv, "NODE_ENV">): Promise<string> {
+  let url = new URL(startUrl);
+  for (let redirects = 0; redirects <= env.MAX_URL_REDIRECTS; redirects += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), env.FETCH_TIMEOUT_MS);
+    const response = await fetch(url, { redirect: "manual", signal: controller.signal, headers: { "user-agent": "ListingForgeBot/0.1 (+https://listingforge.local)" } });
+    clearTimeout(timeout);
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) throw new Error("Reference page redirected without a Location header.");
+      url = await validatePublicUrl(new URL(location, url).toString(), { skipDns: env.NODE_ENV !== "production", allowHttpLocalhost: env.NODE_ENV !== "production" });
+      continue;
+    }
+    if (!response.ok) throw new Error(`Reference page returned HTTP ${response.status}.`);
+    if (!response.headers.get("content-type")?.toLowerCase().includes("text/html")) throw new Error("Reference page did not return HTML.");
+    return readLimitedText(response, env.MAX_FETCH_BYTES);
+  }
+  throw new Error("Reference page exceeded the redirect limit.");
+}
+
+function analyzeReferenceHtml(url: URL, html: string): ReferencePageAnalysis {
+  const clean = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ");
+  const headings = unique([...clean.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
+    .map((match) => decode(match[1]) ?? "")
+    .filter((heading) => heading.length >= 6 && heading.length <= 90)
+    .filter((heading) => !/cart|checkout|login|menu|shipping|refund|privacy|terms/i.test(heading)))
+    .slice(0, 12);
+  const text = decode(clean)?.toLowerCase() ?? "";
+  const patterns = [
+    /faq|question/.test(text) ? "FAQ near the end" : "",
+    /comparison|compare|versus|vs\./.test(text) ? "comparison section" : "",
+    /how it works|how to use|instructions/.test(text) ? "how-it-works section" : "",
+    /benefit|why choose|why .* works/.test(text) ? "benefit-led section" : "",
+    /specification|details|material|size/.test(text) ? "specification block" : ""
+  ].filter(Boolean);
+  const styleSignals = [
+    /premium|luxury|advanced|precision/.test(text) ? "premium positioning" : "",
+    /comfort|relief|support|routine/.test(text) ? "comfort-led angle" : "",
+    /simple|easy|portable|compact/.test(text) ? "simplicity angle" : "",
+    /dark|black|gold/.test(text) ? "premium visual tone" : "",
+    /clinical|therapy|medical|pain/.test(text) ? "high-claim caution" : ""
+  ].filter(Boolean);
+  return {
+    url: url.toString(),
+    title: extractTag(clean, "title"),
+    metaDescription: extractMeta(clean, "description"),
+    headings,
+    imageCount: (clean.match(/<img\b/gi) ?? []).length,
+    videoCount: (clean.match(/<video\b|<source\b[^>]+video\//gi) ?? []).length,
+    sectionPatterns: unique(patterns),
+    styleSignals: unique(styleSignals),
+    warnings: ["Reference page analyzed for layout/style only. Text, reviews, ratings, claims, and media are not copied."]
+  };
 }
 
 async function fetchPublicHtml(startUrl: URL, env: PublicAdapterEnv): Promise<string> {

@@ -2,6 +2,18 @@ import type { AppEnv } from "@listingforge/config";
 import type { PricingResult } from "@listingforge/pricing";
 import { GeneratedListingSchema, type GeneratedListing, type SourceProduct } from "@listingforge/schemas";
 
+export type ReferencePageBlueprint = {
+  url: string;
+  title: string | null;
+  metaDescription: string | null;
+  headings: string[];
+  imageCount: number;
+  videoCount: number;
+  sectionPatterns: string[];
+  styleSignals: string[];
+  warnings: string[];
+};
+
 export type GenerateInput = {
   source: SourceProduct;
   pricing: PricingResult;
@@ -10,6 +22,7 @@ export type GenerateInput = {
     tone?: string;
     prohibitedPhrases?: string[];
   };
+  referencePages?: ReferencePageBlueprint[];
 };
 
 export interface AiProvider {
@@ -34,6 +47,20 @@ function capitalize(value: string): string {
 
 function titleCase(value: string): string {
   return value.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function buildReferenceBlueprint(pages: ReferencePageBlueprint[] = []): ProductResearchBrief["referenceBlueprint"] {
+  const sectionPatterns = uniqueStrings(pages.flatMap((page) => page.sectionPatterns)).slice(0, 6);
+  const styleSignals = uniqueStrings(pages.flatMap((page) => page.styleSignals)).slice(0, 6);
+  const headings = pages.flatMap((page) => page.headings);
+  const avgHeadingWords = headings.length ? headings.reduce((total, heading) => total + heading.split(/\s+/).length, 0) / headings.length : 6;
+  const avgImages = pages.length ? pages.reduce((total, page) => total + page.imageCount, 0) / pages.length : 0;
+  return {
+    headingStyle: avgHeadingWords <= 5 ? "short benefit-led headings" : "answer-first editorial headings",
+    sectionPatterns,
+    styleSignals,
+    mediaDensity: avgImages >= 8 ? "image-rich" : avgImages >= 4 ? "balanced media" : "text-led"
+  };
 }
 
 function sourceSentence(value: string | null | undefined, fallback: string): string {
@@ -86,6 +113,12 @@ type ProductResearchBrief = {
   faq: Array<{ question: string; answer: string }>;
   factIds: string[];
   media: SourceProduct["media"];
+  referenceBlueprint: {
+    headingStyle: string;
+    sectionPatterns: string[];
+    styleSignals: string[];
+    mediaDensity: string;
+  };
 };
 
 type PageStrategy = {
@@ -214,6 +247,7 @@ function salesBlueprint(brief: ProductResearchBrief): {
 } {
   const noun = brief.productType.toLowerCase();
   const moment = shopperMoment(brief.category);
+  const referenceStyle = brief.referenceBlueprint.mediaDensity === "image-rich" ? "Pair each major benefit with a useful visual check." : "Keep each section direct and easy to scan.";
   const visibleSpecs = Object.entries(brief.specs)
     .filter(([key]) => key !== "Product type")
     .map(([key, value]) => `${key}: ${value}`)
@@ -227,7 +261,7 @@ function salesBlueprint(brief: ProductResearchBrief): {
       `Made for ${moment} without a complicated learning curve`,
       `Clear photos make the shape, finish, and included details easier to inspect`,
       `Simple benefits show how the ${noun} can fit into regular use`,
-      `FAQ and specs answer common pre-purchase questions in plain language`
+      `${referenceStyle} FAQ and specs answer common pre-purchase questions in plain language`
     ],
     demoBullets: [
       `Check the first image for the overall product shape and main use case`,
@@ -288,14 +322,15 @@ function buildResearchBrief(input: GenerateInput): ProductResearchBrief {
       { question: "What should I check before checkout?", answer: "Confirm the selected option, quantity, included items, and store policy information shown on the page." }
     ],
     factIds,
-    media
+    media,
+    referenceBlueprint: buildReferenceBlueprint(input.referencePages)
   };
 }
 
 function fallbackStrategy(brief: ProductResearchBrief): PageStrategy {
   return {
-    angle: `${brief.productType} as a practical ${brief.category} product with clear daily-use benefits`,
-    tone: "clear, specific, conversion-focused, and compliant",
+    angle: `${brief.productType} as a practical ${brief.category} product with clear daily-use benefits and ${brief.referenceBlueprint.mediaDensity} sales-page pacing`,
+    tone: `clear, specific, conversion-focused, compliant, ${brief.referenceBlueprint.headingStyle}`,
     sectionGuidance: {
       "product-hero": "Open with what the product is and why shoppers should care.",
       "trust-strip": "Show included items or quick confidence details without fake proof.",
@@ -308,7 +343,7 @@ function fallbackStrategy(brief: ProductResearchBrief): PageStrategy {
       "package-contents": "Show included items only.",
       "guarantee-faq": "Answer pre-purchase objections without inventing policies.",
       "final-cta-reviews": "Close with a conservative CTA."
-    }
+    },
   };
 }
 
@@ -325,7 +360,8 @@ function aiProductBrief(brief: ProductResearchBrief): unknown {
     whyChoose: brief.whyChoose,
     specs: brief.specs,
     packageItems: brief.packageItems,
-    mediaCount: brief.media.length
+    mediaCount: brief.media.length,
+    referenceBlueprint: brief.referenceBlueprint
   };
 }
 
@@ -378,7 +414,11 @@ export class MockAiProvider implements AiProvider {
         description: `${brief.productType} product page with clear benefits and practical details.`
       },
       compliance: {
-        warnings: ["Confirm media usage rights before export.", "Pricing is an estimate, not a profit guarantee."],
+        warnings: [
+          "Confirm media usage rights before export.",
+          "Pricing is an estimate, not a profit guarantee.",
+          ...(input.referencePages?.length ? ["Reference pages were used for layout/style signals only; no reference reviews, ratings, claims, text, or media should be copied."] : [])
+        ],
         unsupportedClaims: [],
         humanReviewRequired: false
       },
@@ -406,6 +446,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       "Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims.",
       "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
       "Never mention product price, shipping price, wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
+      "Reference pages are style/layout inspiration only. Do not copy their text, reviews, ratings, claims, brand names, or media.",
       "Use natural sales-page headings instead of module names."
     ].join(" ");
 

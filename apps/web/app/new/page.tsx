@@ -7,6 +7,7 @@ import { Badge, Card, Field } from "@listingforge/ui";
 export default function NewProjectPage() {
   const router = useRouter();
   const [sourceUrl, setSourceUrl] = useState("https://www.aliexpress.com/item/1005008809640384.html");
+  const [referenceUrls, setReferenceUrls] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -22,6 +23,7 @@ export default function NewProjectPage() {
     const timers = [
       window.setTimeout(() => addLog("Validated source URL and domain allowlist."), 150),
       window.setTimeout(() => addLog("Extracting product title, price, media, and page facts."), 1200),
+      window.setTimeout(() => addLog("Analyzing reference page layout when provided."), 2200),
       window.setTimeout(() => addLog("Calculating landed cost and suggested selling range."), 3500),
       window.setTimeout(() => addLog("Generating compliant sales-page description modules."), 7000),
       window.setTimeout(() => addLog("Rendering sanitized HTML and checking quality gate."), 14000),
@@ -32,7 +34,13 @@ export default function NewProjectPage() {
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sourceUrl, targetCountry: "US", targetLanguage: "en", currency: "USD" })
+        body: JSON.stringify({
+          sourceUrl,
+          referenceUrls: referenceUrls.split(/\s+/).map((url) => url.trim()).filter(Boolean),
+          targetCountry: "US",
+          targetLanguage: "en",
+          currency: "USD"
+        })
       });
       const payload = await response.json() as { id?: string; error?: { message: string } };
       if (!response.ok || !payload.id) {
@@ -72,6 +80,9 @@ export default function NewProjectPage() {
             <p className="muted">ListingForge keeps source facts, media links, pricing, and compliance notes attached to the project.</p>
             <Field label="Supplier URL">
               <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
+            </Field>
+            <Field label="Reference product pages">
+              <textarea rows={4} value={referenceUrls} onChange={(event) => setReferenceUrls(event.target.value)} placeholder="Paste 1-3 reference product page URLs, separated by spaces or new lines" />
             </Field>
             {error ? <p className="lf-badge lf-badge-bad">{error}</p> : null}
             <p><button className="lf-button" disabled={loading} onClick={submit}>{loading ? "Generating..." : "Generate draft"}</button></p>

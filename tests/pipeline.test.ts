@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AliExpressAdapter, MockSourceAdapter } from "@listingforge/adapters";
+import { AliExpressAdapter, analyzeReferencePages, MockSourceAdapter } from "@listingforge/adapters";
 import { MockAiProvider, OpenAiCompatibleProvider } from "@listingforge/ai";
 import { renderListingHtml, sanitizeHtml, scoreDescriptionHtmlQuality } from "@listingforge/html";
 import { calculatePricing } from "@listingforge/pricing";
@@ -199,6 +199,45 @@ describe("fixture pipeline", () => {
       expect(prompt).not.toContain("itemCost");
       expect(prompt).not.toContain("shippingQuotes");
       expect(prompt).toContain("storefront product-page copy");
+    } finally {
+      globalThis.fetch = oldFetch;
+    }
+  });
+
+  it("analyzes reference page layout without copying reference content into prompts", async () => {
+    const oldFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        '<html><head><title>Premium Competitor Name</title><meta name="description" content="Do not copy this line"></head><body><h2>See It In Action</h2><h2>Why Choose Our Device</h2><h2>Frequently Asked Questions</h2><img src="/a.jpg"><img src="/b.jpg"><video></video></body></html>',
+        { status: 200, headers: { "content-type": "text/html" } }
+      );
+    try {
+      const pages = await analyzeReferencePages(["https://example.com/products/sample"], {
+        ALLOWED_SOURCE_DOMAINS: [],
+        FETCH_TIMEOUT_MS: 1000,
+        MAX_FETCH_BYTES: 10_000,
+        MAX_URL_REDIRECTS: 1,
+        NODE_ENV: "test"
+      });
+      expect(pages[0]?.sectionPatterns).toContain("FAQ near the end");
+      expect(pages[0]?.imageCount).toBe(2);
+
+      const source = await new MockSourceAdapter().extract({
+        url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+        targetCountry: "US"
+      });
+      const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: 0 });
+      let prompt = "";
+      globalThis.fetch = async (_url, init) => {
+        const body = JSON.parse(String(init?.body));
+        prompt = body.messages[1].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({}) } }] }), { status: 200 });
+      };
+      await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing, referencePages: pages });
+      expect(prompt).toContain("referenceBlueprint");
+      expect(prompt).not.toContain("Premium Competitor Name");
+      expect(prompt).not.toContain("Do not copy this line");
+      expect(prompt).not.toContain("See It In Action");
     } finally {
       globalThis.fetch = oldFetch;
     }

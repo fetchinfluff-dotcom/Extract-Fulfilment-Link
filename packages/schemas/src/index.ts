@@ -117,6 +117,7 @@ export type GeneratedListing = z.infer<typeof GeneratedListingSchema>;
 
 export const ProjectRequestSchema = z.object({
   sourceUrl: z.url(),
+  referenceUrls: z.array(z.url()).max(3).default([]),
   targetCountry: z.string().min(2).default("US"),
   targetLanguage: z.string().min(2).default("en"),
   currency: z.string().length(3).default("USD"),

@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { createAdapters, findAdapter } from "@listingforge/adapters";
+import { analyzeReferencePages, createAdapters, findAdapter } from "@listingforge/adapters";
 import { createAiProvider } from "@listingforge/ai";
 import { loadEnv } from "@listingforge/config";
 import { renderListingHtml, sanitizeHtml } from "@listingforge/html";
 import { calculatePricing, type PricingResult } from "@listingforge/pricing";
 import type { GeneratedListing, ProjectRequest, SourceProduct } from "@listingforge/schemas";
+import type { ReferencePageAnalysis } from "@listingforge/adapters";
 import { ProjectRequestSchema } from "@listingforge/schemas";
 import { optionsFromEnv, scanRestrictedProductText, validateSourceUrl } from "@listingforge/security";
 
@@ -13,6 +14,7 @@ export type DemoProject = {
   request: ProjectRequest;
   source: SourceProduct;
   pricing: PricingResult;
+  referencePages: ReferencePageAnalysis[];
   listing: GeneratedListing;
   html: string;
   createdAt: string;
@@ -38,13 +40,25 @@ export async function createDemoProject(body: unknown): Promise<DemoProject> {
   if (!variant) throw new Error("Source product has no variants.");
   const shippingCost = source.shippingQuotes[0]?.cost ?? 0;
   const pricing = calculatePricing({ itemCost: variant.itemCost, shippingCost, roundingStyle: "up_99" });
-  const listing = await createAiProvider(env).generateListing({ source, pricing });
+  const referencePages = await analyzeReferencePages(request.referenceUrls, env).catch((error: unknown) => [{
+    url: "reference-analysis",
+    title: null,
+    metaDescription: null,
+    headings: [],
+    imageCount: 0,
+    videoCount: 0,
+    sectionPatterns: [],
+    styleSignals: [],
+    warnings: [error instanceof Error ? error.message : "Reference analysis failed."]
+  }]);
+  const listing = await createAiProvider(env).generateListing({ source, pricing, referencePages });
   const html = renderListingHtml(listing);
   const project: DemoProject = {
     id: crypto.randomUUID(),
     request,
     source,
     pricing,
+    referencePages,
     listing,
     html,
     createdAt: new Date().toISOString()
@@ -77,7 +91,7 @@ export function exportProject(project: DemoProject, format: "html" | "json" | "c
       `source_url,"${project.request.sourceUrl}"`
     ].join("\n");
   }
-  return JSON.stringify({ source: project.source, pricing: project.pricing, listing: project.listing, html: project.html }, null, 2);
+  return JSON.stringify({ source: project.source, pricing: project.pricing, referencePages: project.referencePages, listing: project.listing, html: project.html }, null, 2);
 }
 
 function supabase(env: ReturnType<typeof loadEnv>): { url: string; key: string } | null {
@@ -131,7 +145,7 @@ async function saveProject(project: DemoProject, env: ReturnType<typeof loadEnv>
       adapter_version: "listingforge-adapters@0.1",
       method: project.source.platform === "aliexpress" ? "http+mtop" : "http",
       content_hash: createHash("sha256").update(JSON.stringify(project.source)).digest("hex"),
-      redacted_payload: { request: project.request, source: project.source, pricing: project.pricing },
+      redacted_payload: { request: project.request, source: project.source, pricing: project.pricing, referencePages: project.referencePages },
       warnings: project.source.warnings,
       confidence_score: project.source.confidence
     })
@@ -160,7 +174,7 @@ async function loadProject(id: string, env: ReturnType<typeof loadEnv>): Promise
   if (!supabase(env)) return undefined;
   const [project] = await rest<Array<Record<string, unknown>>>(env, `projects?id=eq.${id}&limit=1`);
   if (!project) return undefined;
-  const [snapshot] = await rest<Array<{ redacted_payload: { request: ProjectRequest; source: SourceProduct; pricing: PricingResult } }>>(env, `source_snapshots?project_id=eq.${id}&order=extracted_at.desc&limit=1`);
+  const [snapshot] = await rest<Array<{ redacted_payload: { request: ProjectRequest; source: SourceProduct; pricing: PricingResult; referencePages?: ReferencePageAnalysis[] } }>>(env, `source_snapshots?project_id=eq.${id}&order=extracted_at.desc&limit=1`);
   const versionId = typeof project.active_version_id === "string" ? project.active_version_id : "";
   const versionQuery = versionId ? `id=eq.${versionId}` : `project_id=eq.${id}&order=created_at.desc&limit=1`;
   const [version] = await rest<Array<{ structured_content_json: GeneratedListing; sanitized_html: string }>>(env, `generated_versions?${versionQuery}`);
@@ -170,6 +184,7 @@ async function loadProject(id: string, env: ReturnType<typeof loadEnv>): Promise
     request: snapshot.redacted_payload.request,
     source: snapshot.redacted_payload.source,
     pricing: snapshot.redacted_payload.pricing,
+    referencePages: snapshot.redacted_payload.referencePages ?? [],
     listing: version.structured_content_json,
     html: version.sanitized_html,
     createdAt: String(project.created_at ?? new Date().toISOString())

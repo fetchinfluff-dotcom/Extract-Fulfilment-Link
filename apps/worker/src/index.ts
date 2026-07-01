@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { createAdapters, findAdapter } from "@listingforge/adapters";
+import { analyzeReferencePages, createAdapters, findAdapter } from "@listingforge/adapters";
 import { createAiProvider } from "@listingforge/ai";
 import { loadEnv } from "@listingforge/config";
 import { renderListingHtml } from "@listingforge/html";
@@ -12,6 +12,7 @@ const connection = { url: env.REDIS_URL };
 type ExtractJob = {
   sourceUrl: string;
   targetCountry: string;
+  referenceUrls?: string[];
 };
 
 new Worker<ExtractJob>(
@@ -27,7 +28,8 @@ new Worker<ExtractJob>(
     if (!firstVariant) throw new Error("No variants were extracted.");
     await job.updateProgress({ stage: "generating", message: "Generating structured listing" });
     const pricing = calculatePricing({ itemCost: firstVariant.itemCost, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
-    const listing = await createAiProvider(env).generateListing({ source, pricing });
+    const referencePages = await analyzeReferencePages(job.data.referenceUrls ?? [], env).catch(() => []);
+    const listing = await createAiProvider(env).generateListing({ source, pricing, referencePages });
     return { source, pricing, listing, html: renderListingHtml(listing) };
   },
   { connection, concurrency: Number(process.env.JOB_CONCURRENCY_EXTRACT ?? 2) }

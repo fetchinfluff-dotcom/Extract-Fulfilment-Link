@@ -14,6 +14,8 @@ export type UrlValidationOptions = {
   allowHttpLocalhost?: boolean;
 };
 
+export type PublicUrlValidationOptions = Omit<UrlValidationOptions, "allowedDomains">;
+
 const blockedIPv4Cidrs = [
   ["0.0.0.0", 8],
   ["10.0.0.0", 8],
@@ -79,6 +81,25 @@ export async function validateSourceUrl(rawUrl: string, options: UrlValidationOp
 
   url.hash = "";
   return { url, platform: detectPlatform(url.hostname), warnings: [] };
+}
+
+export async function validatePublicUrl(rawUrl: string, options: PublicUrlValidationOptions): Promise<URL> {
+  const url = new URL(rawUrl);
+  if (url.username || url.password) throw new Error("URL credentials are not allowed.");
+  if (url.protocol !== "https:" && !(options.allowHttpLocalhost && url.hostname === "localhost")) {
+    throw new Error("Only HTTPS URLs are allowed.");
+  }
+  if (url.port) throw new Error("Custom URL ports are not allowed.");
+  const literalIp = isIP(url.hostname);
+  if (literalIp && isPrivateAddress(url.hostname)) throw new Error("Private network addresses are not allowed.");
+  if (!options.skipDns && url.hostname !== "localhost") {
+    const records = await lookup(url.hostname, { all: true });
+    if (records.some((record) => isPrivateAddress(record.address))) {
+      throw new Error("URL resolves to a private network address.");
+    }
+  }
+  url.hash = "";
+  return url;
 }
 
 export function optionsFromEnv(env: Pick<AppEnv, "ALLOWED_SOURCE_DOMAINS" | "NODE_ENV">): UrlValidationOptions {
