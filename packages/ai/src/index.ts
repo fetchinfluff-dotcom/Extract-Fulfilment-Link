@@ -78,14 +78,14 @@ export class MockAiProvider implements AiProvider {
       category: "General merchandise",
       subcategory: null,
       riskLevel: "LOW",
-      targetBuyer: "Shoppers comparing practical product upgrades",
-      valueProposition: `${productType} positioned with source-backed benefits, clear visuals, and conservative claims.`,
+      targetBuyer: "Shoppers looking for a practical product with clear everyday benefits",
+      valueProposition: `${productType} positioned with clear visuals, practical benefits, and conservative claims.`,
       titleCandidates: [
         { title: selectedTitle, pattern: "[Brand/Product Name] - [Product type or main benefit]", mainKeyword: productType, riskNotes: [] },
         { title: `${brandName} ${productType} for Everyday Use`, pattern: "Brand + product type + use case", mainKeyword: productType, riskNotes: [] },
-        { title: `${productType} - Source-Verified Product Draft`, pattern: "Plain SEO descriptive title", mainKeyword: productType, riskNotes: [] },
+        { title: `${productType} for Everyday Use`, pattern: "Plain SEO descriptive title", mainKeyword: productType, riskNotes: [] },
         { title: `${brandName} Essential ${productType}`, pattern: "Brandable short title", mainKeyword: productType, riskNotes: [] },
-        { title: `${productType} with Supplier-Verified Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: productType, riskNotes: [] }
+        { title: `${productType} with Clear Product Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: productType, riskNotes: [] }
       ],
       selectedTitle,
       subtitle: `${productType} combines practical design with straightforward everyday use.`,
@@ -96,22 +96,22 @@ export class MockAiProvider implements AiProvider {
         { key: "problem-outcome", type: "problem", heading: "Want a simpler everyday solution?", blocks: [`${productType} helps present a clear answer for shoppers who want a useful product without confusing setup or unnecessary extras.`], factIds },
         { key: "product-demo", type: "demo", heading: "See the details up close", blocks: [imageBlock(1, `${productType} detail image`), "Use the product images to show shape, finish, controls, and included details before shoppers reach the specifications."], mediaAssetIds: media[1] ? ["media-2"] : [], factIds },
         { key: "three-core-benefits", type: "benefits", heading: "Why shoppers will care", blocks: [{ type: "list", items: featureBullets.slice(0, 3) }, imageBlock(2, `${productType} feature image`)], mediaAssetIds: media[2] ? ["media-3"] : [], factIds },
-        { key: "how-it-works", type: "how-it-works", heading: "How it fits into daily use", blocks: [`Keep ${productType.toLowerCase()} within reach, choose the option that matches your needs, and follow the supplier instructions included with the product.`], factIds },
+        { key: "how-it-works", type: "how-it-works", heading: "How it fits into daily use", blocks: [`Keep ${productType.toLowerCase()} within reach, choose the option that matches your needs, and follow the instructions included with the product.`], factIds },
         { key: "why-choose", type: "comparison", heading: "A clear choice for practical buyers", blocks: [imageBlock(3, `${productType} lifestyle image`), { type: "list", items: ["Easy to compare from the product images", "Straightforward details before checkout", "Built around practical everyday use"] }], mediaAssetIds: media[3] ? ["media-4"] : [], factIds },
-        { key: "customer-proof", type: "placeholder", heading: "Review with confidence", blocks: ["The page keeps product details conservative and easy to verify, so store owners can add real customer reviews later when they have them."], factIds: [], placeholder: true },
+        { key: "customer-proof", type: "placeholder", heading: "Review with confidence", blocks: ["Clear product details, realistic benefits, and useful images help shoppers decide without exaggerated promises."], factIds: [], placeholder: true },
         { key: "specifications", type: "specifications", heading: "Product Details", blocks: [{ type: "table", rows: specs }], factIds },
         { key: "package-contents", type: "package", heading: "Package Includes", blocks: [{ type: "list", items: packageItems }], factIds },
         { key: "guarantee-faq", type: "faq", heading: "Before you buy", blocks: [`Check the selected option, review the product images, and confirm ${productType.toLowerCase()} matches your intended use before checkout.`], factIds },
         { key: "final-cta-reviews", type: "cta", heading: `Ready to try ${productType}?`, blocks: [imageBlock(4, `${productType} final product image`), "Choose the option that fits your needs and review the product details before ordering."], mediaAssetIds: media[4] ? ["media-5"] : [], factIds }
       ],
       faq: [
-        { question: "What is this product?", answer: `It is listed by the supplier as: ${productType}.`, factIds },
-        { question: "Are the images ready to publish?", answer: "They are supplier media links and should be reviewed for store usage rights before publishing.", factIds },
-        { question: "What should I check before publishing?", answer: "Confirm variant names, package contents, media rights, and any store policy details before the listing goes live.", factIds }
+        { question: "What is this product?", answer: `${productType} is a practical product designed for everyday use.`, factIds },
+        { question: "How should I choose the right option?", answer: "Review the product images, selected option, and package details before ordering.", factIds },
+        { question: "What should I check before checkout?", answer: "Confirm the option, quantity, product details, and store policy information shown on the page.", factIds }
       ],
       seo: {
         metaTitle: selectedTitle.slice(0, 60),
-        metaDescription: `${productType} product listing draft with source-backed details, supplier media, and editable store-ready sections.`.slice(0, 155),
+        metaDescription: `${productType} product page with clear benefits, useful images, practical details, and an easy-to-review FAQ.`.slice(0, 155),
         handle: slugify(selectedTitle),
         imageAltTexts: input.source.media.map((media, index) => ({ assetId: `media-${index + 1}`, alt: `${productType} product image ${index + 1}` }))
       },
@@ -119,7 +119,7 @@ export class MockAiProvider implements AiProvider {
         "@context": "https://schema.org",
         "@type": "Product",
         name: selectedTitle,
-        description: "Draft product data from verified fixture facts. Merchant must confirm final offer fields."
+        description: `${productType} product page with clear benefits and practical details.`
       },
       compliance: {
         warnings: ["Confirm media usage rights before export.", "Pricing is an estimate, not a profit guarantee."],
@@ -128,7 +128,7 @@ export class MockAiProvider implements AiProvider {
       },
       factReferences: [
         { claim: selectedTitle, factIds },
-        { claim: "Suggested price range is based on detected landed cost inputs.", factIds }
+        { claim: "Product page uses conservative, reviewable claims.", factIds }
       ]
     });
   }
@@ -146,7 +146,14 @@ export class OpenAiCompatibleProvider implements AiProvider {
       SOURCE_PRODUCT: sourceBrief(input.source),
       PRICING_RESULT: input.pricing,
       BRAND_PROFILE: input.brandProfile ?? {},
-      RULES: "Return only JSON. Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims."
+      RULES: [
+        "Return only JSON.",
+        "Write storefront product-page copy for shoppers, not internal notes for merchants.",
+        "Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims.",
+        "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
+        "Never mention wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
+        "Use natural sales-page headings instead of module names."
+      ].join(" ")
     };
     const sectionChunks = [
       ["product-hero", "trust-strip", "problem-outcome", "product-demo"],
@@ -169,9 +176,9 @@ export class OpenAiCompatibleProvider implements AiProvider {
       }, 900),
       ...sectionChunks.map((keys) => this.completeJson({
         ...common,
-        TASK: "Rewrite only these description modules. Keep claims conservative and fact-backed.",
+        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow this blueprint when relevant: hero, problem hook, outcome, detail/demo, benefits, how it works, use cases, why choose it, specifications, package contents, FAQ objection handling, final CTA. Keep claims conservative and fact-backed.",
         SECTION_KEYS: keys,
-        JSON_SHAPE: { sections: [{ key: keys[0], blocks: ["1 to 3 concise strings or list blocks"] }] }
+        JSON_SHAPE: { sections: [{ key: keys[0], heading: "natural shopper-facing heading", blocks: ["1 to 3 concise strings or list blocks"] }] }
       }, 1200)),
       this.completeJson({
         ...common,

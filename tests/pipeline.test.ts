@@ -66,6 +66,19 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Add verified reviews only after import");
   });
 
+  it("fails storefront HTML quality gate when internal workflow terms survive", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    expect(() => renderListingHtml({
+      ...listing,
+      subtitle: "Detected supplier item cost should not appear on the storefront."
+    })).toThrow("internal workflow terms");
+  });
+
   it("extracts public JSON-LD product pages without credentials", async () => {
     const oldFetch = globalThis.fetch;
     globalThis.fetch = async () =>
@@ -148,6 +161,7 @@ describe("fixture pipeline", () => {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
       expect(listing.selectedTitle).toBe(expected.selectedTitle);
       expect(prompt).not.toContain("\"attributes\"");
+      expect(prompt).toContain("storefront product-page copy");
     } finally {
       globalThis.fetch = oldFetch;
     }

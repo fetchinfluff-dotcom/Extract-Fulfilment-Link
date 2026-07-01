@@ -22,6 +22,7 @@
 - [x] Stitch ListingForge SaaS interface frame applied to landing, dashboard, and import flow.
 - [x] Project editor/detail page uses the same dashboard shell and sidebar frame.
 - [x] Product description fallback and renderer remove internal pricing/object noise from storefront HTML.
+- [x] AI prompt and fallback now generate conversion-focused, compliant sales-page descriptions with a storefront HTML quality gate.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
 - [ ] Rich supplier extraction for all dynamic variants and fallback suppliers when public pages omit data.
@@ -52,6 +53,7 @@
 - Passed after Stitch SaaS UI frame: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`, `pnpm e2e`
 - Passed after project editor shell sync: `pnpm test` (3 files, 11 tests), `pnpm typecheck`, `pnpm build`, `pnpm e2e`, `pnpm lint`
 - Passed after description noise cleanup: `pnpm test` (3 files, 12 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Passed after sales-page generator upgrade: `pnpm test` (3 files, 13 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201

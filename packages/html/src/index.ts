@@ -1,6 +1,7 @@
 import type { GeneratedListing } from "@listingforge/schemas";
 
 const blue = "#236fa1";
+const internalNoisePattern = /\b(?:detected|supplier|item cost|shipping cost)\b|\[object Object\]|verified reviews only after import/i;
 
 function escapeHtml(value: string): string {
   return value
@@ -15,7 +16,7 @@ function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
   const text = String(value).replace(/\s+/g, " ").trim();
   if (!text || text === "[object Object]" || /^\d+(\.\d+)?$/.test(text)) return null;
-  if (/detected item cost|detected shipping|suggested range|aliexpress:|add verified reviews only after import/i.test(text)) return null;
+  if (internalNoisePattern.test(text) || /suggested range|aliexpress:/i.test(text)) return null;
   return text;
 }
 
@@ -27,7 +28,7 @@ function renderBlock(block: unknown): string {
   if (record.type === "list" && Array.isArray(record.items)) {
     return record.items.flatMap((item) => {
       const itemText = cleanText(item);
-      return itemText ? [`<p><span style="font-size: 16px; color: ${blue};">✅ ${escapeHtml(itemText)}</span></p>`] : [];
+      return itemText ? [`<p><span style="font-size: 16px; color: ${blue};">&#9989; ${escapeHtml(itemText)}</span></p>`] : [];
     }).join("");
   }
   if (record.type === "image" && typeof record.url === "string") {
@@ -41,12 +42,16 @@ function renderBlock(block: unknown): string {
     return Object.entries(record.rows as Record<string, unknown>)
       .flatMap(([key, value]) => {
         const valueText = cleanText(value);
-        if (!valueText || /detected item cost|detected shipping|suggested range|aliexpress/i.test(key)) return [];
-        return [`<p><span style="font-size: 16px; color: ${blue};">✅ <strong>${escapeHtml(key)}</strong>: ${escapeHtml(valueText)}</span></p>`];
+        if (!valueText || internalNoisePattern.test(key) || /suggested range|aliexpress/i.test(key)) return [];
+        return [`<p><span style="font-size: 16px; color: ${blue};">&#9989; <strong>${escapeHtml(key)}</strong>: ${escapeHtml(valueText)}</span></p>`];
       })
       .join("");
   }
   return "";
+}
+
+function assertDescriptionQuality(html: string): void {
+  if (internalNoisePattern.test(html)) throw new Error("Generated product description contains internal workflow terms.");
 }
 
 export function sanitizeHtml(html: string): string {
@@ -71,5 +76,7 @@ ${section.blocks.map(renderBlock).join("\n")}`;
         .map((item) => `<p><span style="font-size: 16px; color: ${blue};"><strong>${escapeHtml(item.question)}</strong><br />${escapeHtml(item.answer)}</span></p>`)
         .join("")}`
     : "";
-  return sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(listing.subtitle)}</span></p>${body}${faq}</div>`);
+  const html = sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(listing.subtitle)}</span></p>${body}${faq}</div>`);
+  assertDescriptionQuality(html);
+  return html;
 }
