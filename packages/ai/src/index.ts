@@ -84,6 +84,12 @@ type ProductResearchBrief = {
   media: SourceProduct["media"];
 };
 
+type PageStrategy = {
+  angle: string;
+  tone: string;
+  sectionGuidance: Record<string, string>;
+};
+
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean))];
 }
@@ -225,6 +231,43 @@ function buildResearchBrief(input: GenerateInput): ProductResearchBrief {
   };
 }
 
+function fallbackStrategy(brief: ProductResearchBrief): PageStrategy {
+  return {
+    angle: `${brief.productType} as a practical ${brief.category} product with clear daily-use benefits`,
+    tone: "clear, specific, conversion-focused, and compliant",
+    sectionGuidance: {
+      "product-hero": "Open with what the product is and why shoppers should care.",
+      "trust-strip": "Show included items or quick confidence details without fake proof.",
+      "problem-outcome": "Name the practical frustration and the realistic outcome.",
+      "product-demo": "Explain what shoppers can inspect in the images.",
+      "three-core-benefits": "Turn verified features into buyer-relevant benefits.",
+      "how-it-works": "Use three simple steps based on instructions or visible use.",
+      "why-choose": "Explain why the product is easy to compare and choose.",
+      specifications: "List verified product details only.",
+      "package-contents": "Show included items only.",
+      "guarantee-faq": "Answer pre-purchase objections without inventing policies.",
+      "final-cta-reviews": "Close with a conservative CTA."
+    }
+  };
+}
+
+function aiProductBrief(brief: ProductResearchBrief): unknown {
+  return {
+    productType: brief.productType,
+    category: brief.category,
+    targetBuyer: brief.targetBuyer,
+    intro: brief.intro,
+    problem: { heading: brief.problemHeading, body: brief.problemBody },
+    outcome: { heading: brief.outcomeHeading, body: brief.outcomeBody },
+    benefits: brief.benefits,
+    useSteps: brief.useSteps,
+    whyChoose: brief.whyChoose,
+    specs: brief.specs,
+    packageItems: brief.packageItems,
+    mediaCount: brief.media.length
+  };
+}
+
 export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     const brief = buildResearchBrief(input);
@@ -291,20 +334,40 @@ export class OpenAiCompatibleProvider implements AiProvider {
     if (!this.env.AI_BASE_URL || !this.env.AI_API_KEY || !this.env.AI_MODEL_QUALITY) {
       throw new Error("OpenAI-compatible provider requires AI_BASE_URL, AI_API_KEY, and AI_MODEL_QUALITY.");
     }
+    const brief = buildResearchBrief(input);
     const base = await new MockAiProvider().generateListing(input);
     const warnings: string[] = [];
-    const common = {
-      SOURCE_PRODUCT: sourceBrief(input.source),
-      PRICING_RESULT: input.pricing,
+    let strategy = fallbackStrategy(brief);
+    const rules = [
+      "Return only JSON.",
+      "Write storefront product-page copy for shoppers, not internal notes for merchants.",
+      "Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims.",
+      "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
+      "Never mention product price, shipping price, wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
+      "Use natural sales-page headings instead of module names."
+    ].join(" ");
+
+    const strategyPatch = await this.completeJson({
+      PRODUCT_RESEARCH_BRIEF: aiProductBrief(brief),
       BRAND_PROFILE: input.brandProfile ?? {},
-      RULES: [
-        "Return only JSON.",
-        "Write storefront product-page copy for shoppers, not internal notes for merchants.",
-        "Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims.",
-        "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
-        "Never mention product price, shipping price, wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
-        "Use natural sales-page headings instead of module names."
-      ].join(" ")
+      RULES: rules,
+      TASK: "Create a conversion-focused but compliant page strategy. Do not write final copy yet.",
+      JSON_SHAPE: {
+        angle: "one concise sales angle",
+        tone: "tone description",
+        sectionGuidance: { "product-hero": "guidance", "problem-outcome": "guidance", "three-core-benefits": "guidance" }
+      }
+    }, 700).then((value) => applyStrategyPatch(base, value)).catch(() => {
+      warnings.push("AI page strategy timed out or failed.");
+      return null;
+    });
+    if (strategyPatch) strategy = strategyPatch;
+
+    const common = {
+      PRODUCT_RESEARCH_BRIEF: aiProductBrief(brief),
+      PAGE_STRATEGY: strategy,
+      BRAND_PROFILE: input.brandProfile ?? {},
+      RULES: rules
     };
     const sectionChunks = [
       ["product-hero", "trust-strip", "problem-outcome", "product-demo"],
@@ -327,7 +390,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       }, 900),
       ...sectionChunks.map((keys) => this.completeJson({
         ...common,
-        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow this blueprint when relevant: hero, problem hook, outcome, detail/demo, benefits, how it works, use cases, why choose it, specifications, package contents, FAQ objection handling, final CTA. Keep claims conservative and fact-backed.",
+        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow PAGE_STRATEGY and the supplied module blueprint. Keep claims conservative, visual, specific, and fact-backed.",
         SECTION_KEYS: keys,
         JSON_SHAPE: { sections: [{ key: keys[0], heading: "natural shopper-facing heading", blocks: ["1 to 3 concise strings or list blocks"] }] }
       }, 1200)),
@@ -350,6 +413,18 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const faqPatch = calls.at(4);
     if (faqPatch?.status === "fulfilled") applyFaqPatch(base, faqPatch.value);
     else warnings.push("AI FAQ patch timed out or failed.");
+
+    const quality = listingQuality(base);
+    if (quality.score < 85 && quality.weakSectionKeys.length) {
+      const rewrite = await this.completeJson({
+        ...common,
+        TASK: "Rewrite only the weak sections. Add concrete shopper-facing copy and useful bullets. Keep existing images/tables in place.",
+        WEAK_SECTION_KEYS: quality.weakSectionKeys,
+        JSON_SHAPE: { sections: [{ key: quality.weakSectionKeys[0], heading: "natural shopper-facing heading", blocks: ["2 to 3 concise strings or list blocks"] }] }
+      }, 900).catch(() => null);
+      if (rewrite) applySectionsPatch(base, rewrite);
+      else warnings.push("AI weak-section rewrite timed out or failed.");
+    }
 
     const parsed = GeneratedListingSchema.safeParse({
       ...base,
@@ -495,12 +570,29 @@ function applyTitlePatch(listing: GeneratedListing, value: unknown): void {
   }
 }
 
+function applyStrategyPatch(listing: GeneratedListing, value: unknown): PageStrategy | null {
+  if (!isRecord(value)) return null;
+  const strategy: PageStrategy = {
+    angle: typeof value.angle === "string" ? value.angle.slice(0, 220) : "",
+    tone: typeof value.tone === "string" ? value.tone.slice(0, 120) : "",
+    sectionGuidance: {}
+  };
+  if (isRecord(value.sectionGuidance)) {
+    strategy.sectionGuidance = Object.fromEntries(
+      Object.entries(value.sectionGuidance).flatMap(([key, item]) => typeof item === "string" ? [[key, item.slice(0, 220)]] : [])
+    );
+  }
+  if (strategy.angle) listing.valueProposition = strategy.angle;
+  return strategy.angle || Object.keys(strategy.sectionGuidance).length ? strategy : null;
+}
+
 function applySectionsPatch(listing: GeneratedListing, value: unknown): void {
   if (!isRecord(value) || !Array.isArray(value.sections)) return;
   for (const patch of value.sections) {
     if (!isRecord(patch) || typeof patch.key !== "string" || !Array.isArray(patch.blocks)) continue;
     const section = listing.sections.find((item) => item.key === patch.key);
     if (!section) continue;
+    if (typeof patch.heading === "string" && !hasInternalNoise(patch.heading)) section.heading = patch.heading.slice(0, 110);
     const fixedBlocks = section.blocks.filter((block) => isRecord(block) && (block.type === "image" || block.type === "table"));
     section.blocks = [...fixedBlocks, ...patch.blocks.map(cleanBlock).filter(Boolean)].slice(0, 4);
   }
@@ -516,14 +608,38 @@ function applyFaqPatch(listing: GeneratedListing, value: unknown): void {
 }
 
 function cleanBlock(block: unknown): unknown {
-  if (typeof block === "string") return block.slice(0, 900);
+  if (typeof block === "string") return hasInternalNoise(block) ? null : block.slice(0, 900);
   if (!isRecord(block)) return null;
-  if (block.type === "list" && Array.isArray(block.items)) return { type: "list", items: block.items.map(String).slice(0, 6) };
-  return typeof block.text === "string" ? block.text.slice(0, 900) : null;
+  if (block.type === "list" && Array.isArray(block.items)) return { type: "list", items: block.items.map(String).filter((item) => !hasInternalNoise(item)).slice(0, 6) };
+  return typeof block.text === "string" && !hasInternalNoise(block.text) ? block.text.slice(0, 900) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasInternalNoise(value: string): boolean {
+  return /\b(?:detected|supplier|item cost|shipping cost)\b|\b(?:price|shipping)\s*:|\$\d|\[object Object\]|verified reviews only after import/i.test(value);
+}
+
+function listingQuality(listing: GeneratedListing): { score: number; weakSectionKeys: string[] } {
+  const imageCount = listing.sections.flatMap((section) => section.blocks).filter((block) => isRecord(block) && block.type === "image").length;
+  const bulletCount = listing.sections.flatMap((section) => section.blocks).reduce<number>((total, block) => (
+    total + (isRecord(block) && block.type === "list" && Array.isArray(block.items) ? block.items.length : 0)
+  ), 0);
+  const weakSectionKeys = listing.sections
+    .filter((section) => section.blocks.filter(Boolean).length < 2 && !["specifications", "package-contents", "guarantee-faq"].includes(section.key))
+    .map((section) => section.key)
+    .slice(0, 4);
+  const checks = [
+    imageCount >= 4,
+    bulletCount >= 8,
+    listing.sections.length >= 10,
+    (listing.faq?.length ?? 0) >= 3,
+    weakSectionKeys.length === 0,
+    !hasInternalNoise(JSON.stringify(listing.sections))
+  ];
+  return { score: Math.round((checks.filter(Boolean).length / checks.length) * 100), weakSectionKeys };
 }
 
 function summarizeSchemaIssues(issues: Array<{ path: PropertyKey[]; message: string }>): string {

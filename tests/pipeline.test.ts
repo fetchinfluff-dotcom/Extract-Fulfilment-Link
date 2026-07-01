@@ -189,6 +189,9 @@ describe("fixture pipeline", () => {
       const listing = await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing });
       expect(listing.selectedTitle).toBe(expected.selectedTitle);
       expect(prompt).not.toContain("\"attributes\"");
+      expect(prompt).not.toContain("PRICING_RESULT");
+      expect(prompt).not.toContain("itemCost");
+      expect(prompt).not.toContain("shippingQuotes");
       expect(prompt).toContain("storefront product-page copy");
     } finally {
       globalThis.fetch = oldFetch;
