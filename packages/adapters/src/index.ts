@@ -263,15 +263,17 @@ function normalizePublicPage(url: URL, targetCountry: string, platform: SourcePl
   const aliPrice = record(record(ali?.PRICE)?.targetSkuPriceInfo) ?? Object.values(record(record(ali?.PRICE)?.skuPriceInfoMap) ?? {}).map(record).find(Boolean) ?? null;
   const aliShipping = record((array(record(ali?.SHIPPING)?.deliveryLayoutInfo)[0] ?? array(record(ali?.SHIPPING)?.originalLayoutResultList)[0]) as unknown)?.bizData;
   const offers = record(jsonLd?.offers);
-  const title = text(record(ali?.PRODUCT_TITLE)?.text) ?? text(jsonLd?.name) ?? extractTag(html, "title") ?? "Untitled public product";
-  const description = text(jsonLd?.description) ?? extractMeta(html, "description") ?? null;
+  const title = text(record(ali?.PRODUCT_TITLE)?.text) ?? text(jsonLd?.name) ?? extractMeta(html, "og:title") ?? extractTag(html, "title") ?? "Untitled public product";
+  const description = text(jsonLd?.description) ?? extractMeta(html, "description") ?? extractMeta(html, "og:description") ?? null;
   const price = money(record(aliPrice?.salePrice)?.value) ?? money(aliPrice?.salePriceString) ?? money(offers?.price) ?? 0;
   const currency = (text(record(aliPrice?.salePrice)?.currency) ?? text(record(aliPrice?.originalPrice)?.currency) ?? text(offers?.priceCurrency) ?? "USD").slice(0, 3).toUpperCase();
   const shippingCost = text(record(aliShipping)?.shippingFee) === "free" ? 0 : money(record(aliShipping)?.displayAmount) ?? money(record(aliShipping)?.formattedAmount);
   const imageUrls = unique([
     ...array(record(ali?.HEADER_IMAGE_PC)?.imagePathList).map(text),
     ...array(record(ali?.HEADER_IMAGE_PC)?.currentSkuImages).map(text),
-    text(Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image)
+    text(Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image),
+    extractMeta(html, "og:image"),
+    ...extractAliExpressHtmlImages(html)
   ].filter((item): item is string => Boolean(item)));
   const warnings = ["Public-page extraction only. Review facts manually; dynamic variants and shipping may be incomplete."];
   if (!price) warnings.push("No public price was found.");
@@ -398,7 +400,18 @@ function extractTag(html: string, tag: string): string | null {
 }
 
 function extractMeta(html: string, name: string): string | null {
-  return decode(html.match(new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"))?.[1]);
+  const tag = html.match(new RegExp(`<meta\\b(?=[^>]+(?:name|property)=["']${name}["'])[^>]*>`, "i"))?.[0];
+  return decode(tag?.match(/\bcontent=["']([^"']+)["']/i)?.[1]);
+}
+
+function extractAliExpressHtmlImages(html: string): string[] {
+  const raw = html.match(/"imagePathList"\s*:\s*(\[[^\]]+\])/i)?.[1];
+  if (!raw) return [];
+  try {
+    return array(JSON.parse(raw)).map(text).filter((item): item is string => Boolean(item)).slice(0, 12);
+  } catch {
+    return [];
+  }
 }
 
 function text(value: unknown): string | null {

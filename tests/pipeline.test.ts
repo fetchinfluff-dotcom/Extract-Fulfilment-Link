@@ -286,6 +286,30 @@ describe("fixture pipeline", () => {
     }
   });
 
+  it("extracts AliExpress locale HTML title and images when mtop is blocked", async () => {
+    const oldFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        '<html><head><meta property="og:title" content="Portable Handheld Steam Cleaner" /><meta property="og:image" content="https://ae01.alicdn.com/kf/main.jpg"/></head><body><script>window.__INIT_DATA__={"imagePathList":["https://ae01.alicdn.com/kf/main.jpg","https://ae01.alicdn.com/kf/detail.jpg"]}</script></body></html>',
+        { status: 200, headers: { "content-type": "text/html" } }
+      );
+    try {
+      const source = await new AliExpressAdapter({
+        FEATURE_ALIEXPRESS_ADAPTER: true,
+        ALLOWED_SOURCE_DOMAINS: ["aliexpress.com"],
+        FETCH_TIMEOUT_MS: 1000,
+        MAX_FETCH_BYTES: 10_000,
+        MAX_URL_REDIRECTS: 1,
+        FEATURE_CJ_ADAPTER: true,
+        FEATURE_QKSOURCE_ADAPTER: true
+      }).extract({ url: new URL("https://www.aliexpress.com/item/1005007987971001.html"), targetCountry: "US" });
+      expect(source.sourceTitle).toBe("Portable Handheld Steam Cleaner");
+      expect(source.media.map((item) => item.url)).toEqual(["https://ae01.alicdn.com/kf/main.jpg", "https://ae01.alicdn.com/kf/detail.jpg"]);
+    } finally {
+      globalThis.fetch = oldFetch;
+    }
+  });
+
   it("extracts AliExpress mtop title, images, price, and shipping", async () => {
     const oldFetch = globalThis.fetch;
     const mtop = {
