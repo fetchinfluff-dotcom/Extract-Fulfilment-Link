@@ -32,6 +32,10 @@ function expectNoPatterns(value: string, patterns: RegExp[]): void {
   for (const pattern of patterns) expect(value).not.toMatch(pattern);
 }
 
+function normalizeListItem(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 describe("fixture pipeline", () => {
   it("extracts, prices, generates, and sanitizes", async () => {
     const source = await new MockSourceAdapter().extract({
@@ -150,6 +154,45 @@ describe("fixture pipeline", () => {
     expect(quality.checks.enoughImages).toBe(true);
     expect(quality.checks.hasFaq).toBe(true);
     expect(quality.checks.noInternalNoise).toBe(true);
+  });
+
+  it("uses varied contextual list icons instead of checkmark-heavy output", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const richSource = {
+      ...source,
+      media: Array.from({ length: 7 }, (_, index) => ({
+        ...source.media[0]!,
+        url: `${source.media[0]!.url}?slot=${index}`
+      }))
+    };
+    const pricing = calculatePricing({ itemCost: richSource.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source: richSource, pricing });
+    const html = renderListingHtml(listing);
+    const listItemCount = html.match(/data-list-item="true"/g)?.length ?? 0;
+    const checkmarkCount = html.match(/&#9989;|&#10003;/g)?.length ?? 0;
+    const iconKinds = new Set(html.match(/&#\d+;/g) ?? []);
+
+    expect(listItemCount).toBeGreaterThanOrEqual(8);
+    expect(checkmarkCount).toBeLessThan(listItemCount / 2);
+    expect(iconKinds.size).toBeGreaterThanOrEqual(5);
+  });
+
+  it("does not repeat identical generated list bullets across sales-page sections", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    const listItems = listing.sections.flatMap((section) =>
+      section.blocks.flatMap((block) => typeof block === "object" && block && "type" in block && block.type === "list" ? block.items : [])
+    ).map(String).map(normalizeListItem).filter(Boolean);
+    const duplicates = listItems.filter((item, index) => listItems.indexOf(item) !== index);
+
+    expect(duplicates).toEqual([]);
   });
 
   it("keeps generated sales-page copy specific instead of hollow filler", async () => {

@@ -35,6 +35,7 @@
 - [x] Sales-page QA regression tests now flag common hollow commerce filler and fake review/rating social-proof patterns.
 - [x] Sales-page output now uses a typed block schema and rejects hollow/short/repetitive AI section patches before they replace the deterministic base draft.
 - [x] HTML renderer and description quality score now strip and fail fake review/rating/social-proof patterns even if a bad AI patch reaches the listing.
+- [x] Sales-page descriptions now dedupe repeated list bullets, use contextual icons instead of checkmark-heavy rendering, and log AI provider request/response/patch status without exposing prompts or secrets.
 - [x] Created local Codex skill `find-similar-dropship-products` for safe similar-product/reference research, scoring similarity, dropship likelihood, and reusable sales-page signals without copying fake proof.
 - [x] Application UI refreshed into a dark technical ListingForge console inspired by the sample project, covering landing, dashboard, import flow, and project editor without adding fake metrics or unsupported claims.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
@@ -82,6 +83,7 @@
 - Passed after sales-page QA regression tests: `pnpm vitest run tests/pipeline.test.ts` (1 file, 14 tests), `pnpm lint`, `pnpm typecheck`, `pnpm test` (4 files, 22 tests), `pnpm build`
 - Passed after typed block and hollow-copy gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 14 tests), `pnpm test` (4 files, 22 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 7 images, 3 FAQ, and description quality score 100.
 - Passed after renderer fake-proof gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 15 tests), `pnpm typecheck`
+- Passed after icon/repetition/AI-status hardening: `pnpm test -- --runInBand` (4 files, 25 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 30 list items, 7 icon kinds, 6 check-style icons, and 0 duplicate list items.
 - Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after technical UI refresh: `pnpm test` (4 files, 20 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; browser checks for `/`, `/new`, `/dashboard`, and generated project editor at desktop/mobile found no real horizontal scrolling.
 - Supabase migration applied: `audit_logs`

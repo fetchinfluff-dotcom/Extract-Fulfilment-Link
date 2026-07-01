@@ -144,6 +144,39 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean))];
 }
 
+function normalizeCopy(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function withoutSeen(values: string[], seen: string[]): string[] {
+  const seenSet = new Set(seen.map(normalizeCopy));
+  return uniqueStrings(values).filter((value) => !seenSet.has(normalizeCopy(value)));
+}
+
+function dedupeListBlocks<T extends { sections: Array<{ blocks: ListingBlock[] }> }>(listing: T): T {
+  const seen = new Set<string>();
+  return {
+    ...listing,
+    sections: listing.sections.map((section) => {
+      const blocks: ListingBlock[] = [];
+      for (const block of section.blocks) {
+        if (typeof block !== "object" || !block || block.type !== "list") {
+          blocks.push(block);
+          continue;
+        }
+        const items = block.items.filter((item) => {
+          const key = normalizeCopy(item);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        if (items.length) blocks.push({ ...block, items });
+      }
+      return { ...section, blocks };
+    })
+  } as T;
+}
+
 function safePhrase(value: string, productType: string): string | null {
   const text = value.replace(/\s+/g, " ").trim();
   if (text.length < 4 || text.length > 95 || /^\d+(\.\d+)?$/.test(text)) return null;
@@ -348,7 +381,9 @@ function salesBlueprint(brief: ProductResearchBrief): {
   heroLead: string;
   heroBullets: string[];
   demoBullets: string[];
+  benefitBullets: string[];
   proofBullets: string[];
+  scenarioBullets: string[];
   scenarios: string[];
   comparisonRows: Record<string, string>;
   finalCta: string;
@@ -363,11 +398,21 @@ function salesBlueprint(brief: ProductResearchBrief): {
   const value = valueBullets(brief);
   const useCases = useCaseBullets(brief);
   const trust = trustBullets(brief);
+  const heroBullets = value.slice(0, 4);
+  const demoBullets = withoutSeen(useCases, heroBullets).slice(0, 4);
+  const benefitBullets = withoutSeen([...brief.benefits, ...trust], [...heroBullets, ...demoBullets]).slice(0, 4);
+  const proofBullets = withoutSeen(
+    [...trust, ...visibleSpecs, `${referenceStyle} Each section answers when to use it, what to expect, and what to confirm before checkout.`],
+    [...heroBullets, ...demoBullets, ...benefitBullets]
+  ).slice(0, 5);
+  const scenarioBullets = withoutSeen([...useCases, ...brief.useSteps, ...brief.whyChoose], [...heroBullets, ...demoBullets, ...benefitBullets, ...proofBullets]).slice(0, 4);
   return {
     heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a more useful, repeatable way to handle the moment shoppers are already trying to improve.`,
-    heroBullets: value.slice(0, 4),
-    demoBullets: useCases,
-    proofBullets: uniqueStrings([...trust, ...visibleSpecs, `${referenceStyle} Each section answers when to use it, what to expect, and what to confirm before checkout.`]).slice(0, 5),
+    heroBullets,
+    demoBullets,
+    benefitBullets,
+    proofBullets,
+    scenarioBullets,
     scenarios: scenarioBlocks(brief),
     comparisonRows: {
       "Basic option": "Looks similar at first glance, but may not explain when, why, or how shoppers should use it.",
@@ -465,7 +510,7 @@ export class MockAiProvider implements AiProvider {
     const copy = salesBlueprint(brief);
     const imageBlock = (index: number, role: string): ListingBlock | null => brief.media[index] ? { type: "image", url: brief.media[index].url, alt: `${brief.productType} ${role} image`, role } : null;
     const blocks = (...items: Array<ListingBlock | null>): ListingBlock[] => items.filter((item): item is ListingBlock => item !== null);
-    return GeneratedListingSchema.parse({
+    return GeneratedListingSchema.parse(dedupeListBlocks({
       category: brief.category,
       subcategory: null,
       riskLevel: "LOW",
@@ -486,10 +531,10 @@ export class MockAiProvider implements AiProvider {
         { key: "trust-strip", type: "package", heading: "Built For The Moments You Actually Use It", blocks: blocks({ type: "list", items: copy.proofBullets }), factIds: brief.factIds },
         { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: blocks(brief.problemBody, `${brief.productType} is positioned around a simple outcome: make the routine feel easier to start, easier to repeat, and more comfortable to keep using.`, imageBlock(1, "detail")), mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
         { key: "product-demo", type: "demo", heading: "How It Helps In Real Use", blocks: blocks(brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }), mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
-        { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: blocks({ type: "list", items: copy.heroBullets.slice(0, 4) }, imageBlock(3, "benefit")), mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
+        { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: blocks({ type: "list", items: copy.benefitBullets }, imageBlock(3, "benefit")), mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
         { key: "how-it-works", type: "how-it-works", heading: hasReferenceSection(brief, "how-it-works") ? "A Simple Way To Use It" : "How It Fits Into Daily Use", blocks: blocks(`Use it in short, repeatable moments so ${brief.productType.toLowerCase()} feels easy to keep in ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")), mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
         { key: "why-choose", type: "comparison", heading: hasReferenceSection(brief, "comparison") ? `${brief.selectedTitle} vs. A Basic Option` : `Why Choose ${brief.selectedTitle}?`, blocks: blocks({ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }), factIds: brief.factIds },
-        { key: "customer-proof", type: "trust", heading: "Real-World Ways To Use It", blocks: blocks(...copy.scenarios, { type: "list", items: copy.proofBullets.slice(0, 4) }), factIds: brief.factIds },
+        { key: "customer-proof", type: "trust", heading: "Real-World Ways To Use It", blocks: blocks(...copy.scenarios, { type: "list", items: copy.scenarioBullets }), factIds: brief.factIds },
         { key: "specifications", type: "specifications", heading: "Product details", blocks: blocks({ type: "table", rows: brief.specs }, imageBlock(5, "specification")), mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
         { key: "package-contents", type: "package", heading: "Package Includes", blocks: blocks(`Your selected option includes the core items needed to start using ${brief.productType.toLowerCase()} as part of the intended routine.`, { type: "list", items: brief.packageItems }), factIds: brief.factIds },
         { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: blocks(`Before checkout, confirm the variant, included items, and care or setup details match where you plan to use ${brief.productType.toLowerCase()}.`), factIds: brief.factIds },
@@ -521,7 +566,7 @@ export class MockAiProvider implements AiProvider {
         { claim: brief.selectedTitle, factIds: brief.factIds },
         { claim: "Product page uses conservative, reviewable claims.", factIds: brief.factIds }
       ]
-    });
+    }));
   }
 }
 
@@ -534,6 +579,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const brief = buildResearchBrief(input);
     const base = await new MockAiProvider().generateListing(input);
     const warnings: string[] = [];
+    let appliedPatches = 0;
     let strategy = fallbackStrategy(brief);
     const rules = [
       "Return only JSON.",
@@ -560,7 +606,10 @@ export class OpenAiCompatibleProvider implements AiProvider {
       warnings.push("AI page strategy timed out or failed.");
       return null;
     });
-    if (strategyPatch) strategy = strategyPatch;
+    if (strategyPatch) {
+      strategy = strategyPatch;
+      appliedPatches += 1;
+    }
 
     const common = {
       PRODUCT_RESEARCH_BRIEF: aiProductBrief(brief),
@@ -601,16 +650,25 @@ export class OpenAiCompatibleProvider implements AiProvider {
     ]);
 
     const titlePatch = calls[0];
-    if (titlePatch.status === "fulfilled") applyTitlePatch(base, titlePatch.value);
+    if (titlePatch.status === "fulfilled") {
+      applyTitlePatch(base, titlePatch.value);
+      appliedPatches += 1;
+    }
     else warnings.push("AI title patch timed out or failed.");
 
     for (const call of calls.slice(1, 4)) {
-      if (call.status === "fulfilled") applySectionsPatch(base, call.value);
+      if (call.status === "fulfilled") {
+        applySectionsPatch(base, call.value);
+        appliedPatches += 1;
+      }
       else warnings.push("AI section patch timed out or failed.");
     }
 
     const faqPatch = calls.at(4);
-    if (faqPatch?.status === "fulfilled") applyFaqPatch(base, faqPatch.value);
+    if (faqPatch?.status === "fulfilled") {
+      applyFaqPatch(base, faqPatch.value);
+      appliedPatches += 1;
+    }
     else warnings.push("AI FAQ patch timed out or failed.");
 
     const quality = listingQuality(base);
@@ -621,9 +679,14 @@ export class OpenAiCompatibleProvider implements AiProvider {
         WEAK_SECTION_KEYS: quality.weakSectionKeys,
         JSON_SHAPE: { sections: [{ key: quality.weakSectionKeys[0], heading: "natural shopper-facing heading", blocks: ["2 to 3 concise strings or list blocks"] }] }
       }, 900).catch(() => null);
-      if (rewrite) applySectionsPatch(base, rewrite);
+      if (rewrite) {
+        applySectionsPatch(base, rewrite);
+        appliedPatches += 1;
+      }
       else warnings.push("AI weak-section rewrite timed out or failed.");
     }
+    if (appliedPatches === 0) warnings.push("AI provider did not return usable patches; deterministic draft was used.");
+    console.info("listingforge.ai.patch.summary", { appliedPatches, warnings: warnings.length });
 
     const parsed = GeneratedListingSchema.safeParse({
       ...base,
@@ -636,6 +699,8 @@ export class OpenAiCompatibleProvider implements AiProvider {
   private async completeJson(payload: unknown, maxTokens: number): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), Math.min(this.env.AI_TIMEOUT_MS ?? 120_000, 35_000));
+    const startedAt = Date.now();
+    console.info("listingforge.ai.request", { model: this.env.AI_MODEL_QUALITY, maxTokens });
     try {
       const response = await fetch(`${this.env.AI_BASE_URL!.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
@@ -654,10 +719,14 @@ export class OpenAiCompatibleProvider implements AiProvider {
           ]
         })
       });
+      console.info("listingforge.ai.response", { status: response.status, durationMs: Date.now() - startedAt });
       if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
       const content = parseOpenAiResponse(await response.text()).choices?.[0]?.message?.content;
       if (!content) throw new Error("AI provider returned an empty response.");
       return parseJsonObjectContent(content);
+    } catch (error) {
+      console.info("listingforge.ai.error", { durationMs: Date.now() - startedAt, message: error instanceof Error ? error.message : "unknown" });
+      throw error;
     } finally {
       clearTimeout(timeout);
     }

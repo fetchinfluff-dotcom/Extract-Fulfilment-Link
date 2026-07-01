@@ -40,15 +40,26 @@ function cleanVisibleText(value: string, fallback: string): string {
   return cleanText(value) ?? fallback;
 }
 
-function renderBlock(block: unknown): string {
+function listIcon(sectionKey: string | undefined, itemText: string, index: number): string {
+  if (/package|include/i.test(sectionKey ?? "")) return "&#128230;";
+  if (/specifications|details/i.test(sectionKey ?? "")) return "&#128313;";
+  if (/how-it-works|demo/i.test(sectionKey ?? "")) return "&#10148;";
+  if (/customer-proof/i.test(sectionKey ?? "")) return "&#128161;";
+  if (/trust-strip/i.test(sectionKey ?? "")) return "&#128274;";
+  if (/why-choose/i.test(sectionKey ?? "")) return index % 2 === 0 ? "&#128202;" : "&#10003;";
+  if (/benefit|comfort|routine|easy|simple|use/i.test(itemText)) return "&#10003;";
+  return "&#8226;";
+}
+
+function renderBlock(block: unknown, sectionKey?: string): string {
   const text = cleanText(block);
   if (text) return `<p style="text-align: left;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(text)}</span></p>`;
   if (!block || typeof block !== "object") return "";
   const record = block as Record<string, unknown>;
   if (record.type === "list" && Array.isArray(record.items)) {
-    return record.items.flatMap((item) => {
+    return record.items.flatMap((item, index) => {
       const itemText = cleanText(item);
-      return itemText ? [`<p><span style="font-size: 16px; color: ${blue};">&#9989; ${escapeHtml(itemText)}</span></p>`] : [];
+      return itemText ? [`<p data-list-item="true"><span style="font-size: 16px; color: ${blue};">${listIcon(sectionKey, itemText, index)} ${escapeHtml(itemText)}</span></p>`] : [];
     }).join("");
   }
   if (record.type === "image" && typeof record.url === "string") {
@@ -63,7 +74,7 @@ function renderBlock(block: unknown): string {
       .flatMap(([key, value]) => {
         const valueText = cleanText(value);
         if (!valueText || internalNoisePattern.test(key) || /suggested range|aliexpress/i.test(key)) return [];
-        return [`<p><span style="font-size: 16px; color: ${blue};">&#9989; <strong>${escapeHtml(key)}</strong>: ${escapeHtml(valueText)}</span></p>`];
+        return [`<p data-list-item="true"><span style="font-size: 16px; color: ${blue};">${listIcon(sectionKey ?? "specifications", valueText, 0)} <strong>${escapeHtml(key)}</strong>: ${escapeHtml(valueText)}</span></p>`];
       })
       .join("");
   }
@@ -77,7 +88,7 @@ function assertDescriptionQuality(html: string): string {
 export function scoreDescriptionHtmlQuality(html: string): DescriptionQualityScore {
   const imageCount = (html.match(/<img\b/gi) ?? []).length;
   const altCount = (html.match(/\salt="/gi) ?? []).length;
-  const bulletCount = (html.match(/&#9989;/g) ?? []).length;
+  const bulletCount = (html.match(/data-list-item="true"/g) ?? []).length;
   const headingCount = (html.match(/font-size: 18px/g) ?? []).length;
   const checks = {
     noInternalNoise: !internalNoisePattern.test(html),
@@ -108,7 +119,7 @@ export function renderListingHtml(listing: GeneratedListing): string {
     .map((section) => {
       const heading = `<p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(cleanVisibleText(section.heading, "Product details"))}</span></strong></p>`;
       return `${heading}
-${section.blocks.map(renderBlock).join("\n")}`;
+${section.blocks.map((block) => renderBlock(block, section.key)).join("\n")}`;
     })
     .join("\n");
   const faq = listing.faq?.length
