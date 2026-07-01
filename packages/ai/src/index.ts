@@ -319,11 +319,37 @@ function trustBullets(brief: ProductResearchBrief): string[] {
   ].filter(Boolean)).slice(0, 5);
 }
 
+function scenarioBlocks(brief: ProductResearchBrief): string[] {
+  const signals = productSignals(brief.productType);
+  const noun = brief.productType.toLowerCase();
+  const categoryLead: Record<string, string> = {
+    wellness: `After a long screen session, ${noun} gives shoppers a simple way to create a short comfort break without turning it into a complicated routine.`,
+    beauty: `Before the day starts or after it slows down, ${noun} fits into a small self-care moment that feels easy to repeat at home.`,
+    tech: `On a desk, shelf, nightstand, or travel setup, ${noun} works best when shoppers want one useful function without extra clutter.`,
+    home: `During the repeated home task it was made for, ${noun} helps keep the process more organized and easier to start.`,
+    pet: `For everyday pet-care moments, ${noun} gives owners a practical tool they can keep nearby instead of improvising each time.`,
+    apparel: `On busy mornings or regular outings, ${noun} helps shoppers choose a fit that feels easier to wear and easier to pair.`
+  };
+  const signalLine = [
+    signals.includes("vibration") ? "The vibration feature makes the experience feel active and intentional, especially for short reset sessions." : "",
+    signals.includes("portable") ? "Because it is compact or foldable, it can stay close by for work breaks, travel bags, drawers, or bedside storage." : "",
+    signals.includes("heat") ? "The warming function adds a cozier feel when shoppers want a slower wind-down moment." : "",
+    signals.includes("cooling") ? "The cooling detail helps the routine feel fresher when comfort and refreshment matter most." : "",
+    signals.includes("targeted-comfort") ? "The targeted shape makes the use case clear at a glance, so shoppers immediately understand where it fits." : ""
+  ].find(Boolean);
+  return uniqueStrings([
+    categoryLead[brief.category] ?? `In daily use, ${noun} works best when shoppers want a practical product that solves one clear routine problem.`,
+    signalLine ?? `The value is in how easily ${noun} fits into a real routine: choose the option, keep it accessible, and use it for the moment it was designed to improve.`,
+    `This makes ${brief.selectedTitle} easier to understand because the page connects the situation, the benefit, and the product details shoppers can verify before checkout.`
+  ]).slice(0, 3);
+}
+
 function salesBlueprint(brief: ProductResearchBrief): {
   heroLead: string;
   heroBullets: string[];
   demoBullets: string[];
   proofBullets: string[];
+  scenarios: string[];
   comparisonRows: Record<string, string>;
   finalCta: string;
 } {
@@ -342,6 +368,7 @@ function salesBlueprint(brief: ProductResearchBrief): {
     heroBullets: value.slice(0, 4),
     demoBullets: useCases,
     proofBullets: uniqueStrings([...trust, ...visibleSpecs, `${referenceStyle} The page keeps the main benefits, use case, and buying questions easy to scan.`]).slice(0, 5),
+    scenarios: scenarioBlocks(brief),
     comparisonRows: {
       "Basic option": "Looks similar at first glance, but may not explain when, why, or how shoppers should use it.",
       [brief.selectedTitle]: `Connects the product type to practical use cases, comfort points, and buying questions.`,
@@ -461,7 +488,7 @@ export class MockAiProvider implements AiProvider {
         { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: [{ type: "list", items: brief.benefits.slice(0, 4).map((item) => `${item} - explained in clear, shopper-friendly language.`) }, imageBlock(3, "benefit")], mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
         { key: "how-it-works", type: "how-it-works", heading: hasReferenceSection(brief, "how-it-works") ? "A Simple Way To Use It" : "How It Fits Into Daily Use", blocks: [`Start with the visible product details, then use the simple steps below to understand how ${brief.productType.toLowerCase()} fits into ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")], mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
         { key: "why-choose", type: "comparison", heading: hasReferenceSection(brief, "comparison") ? `${brief.selectedTitle} vs. A Basic Option` : `Why Choose ${brief.selectedTitle}?`, blocks: [{ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }], factIds: brief.factIds },
-        { key: "customer-proof", type: "trust", heading: "Why It Feels Worth Trying", blocks: [`A strong product page should help shoppers imagine the exact moment they would use ${brief.productType.toLowerCase()}: where it fits, what problem it eases, and why it is simple enough to keep using.`, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
+        { key: "customer-proof", type: "trust", heading: "Real-World Ways To Use It", blocks: [...copy.scenarios, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
         { key: "specifications", type: "specifications", heading: "Product details", blocks: [{ type: "table", rows: brief.specs }, imageBlock(5, "specification")], mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
         { key: "package-contents", type: "package", heading: "Package Includes", blocks: [`Your selected option includes the core items needed to start using ${brief.productType.toLowerCase()} as part of the intended routine.`, { type: "list", items: brief.packageItems }], factIds: brief.factIds },
         { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: [`Review the selected option, package details, and product images to make sure ${brief.productType.toLowerCase()} matches your intended use.`], factIds: brief.factIds },
@@ -514,7 +541,8 @@ export class OpenAiCompatibleProvider implements AiProvider {
       "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
       "Never mention product price, shipping price, wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
       "Reference pages are style/layout inspiration only. Do not copy their text, reviews, ratings, claims, brand names, or media.",
-      "Use natural sales-page headings instead of module names."
+      "Use natural sales-page headings instead of module names.",
+      "For customer-proof sections, write real-world usage scenarios, not testimonials or review-style copy."
     ].join(" ");
 
     const strategyPatch = await this.completeJson({
@@ -560,7 +588,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       }, 900),
       ...sectionChunks.map((keys) => this.completeJson({
         ...common,
-        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow PAGE_STRATEGY and the supplied module blueprint. Keep claims conservative, visual, specific, and fact-backed.",
+        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow PAGE_STRATEGY and the supplied module blueprint. Keep claims conservative, visual, specific, and fact-backed. If customer-proof is included, make it real-world scenario copy rather than reviews.",
         SECTION_KEYS: keys,
         JSON_SHAPE: { sections: [{ key: keys[0], heading: "natural shopper-facing heading", blocks: ["1 to 3 concise strings or list blocks"] }] }
       }, 1200)),

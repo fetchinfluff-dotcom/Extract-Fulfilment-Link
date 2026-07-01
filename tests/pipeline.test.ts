@@ -46,9 +46,13 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Use the package and specification details");
     expect(html).not.toContain("according to the included instructions");
     expect(html).not.toContain("verified customer");
+    expect(html).not.toContain("fake reviews");
+    expect(html).not.toContain("testimonial");
+    expect(html).not.toContain("review-style");
     expect(html).not.toContain("★★★★★");
     expect(html).toContain("Built For The Moments You Actually Use It");
-    expect(html).toContain("Why It Feels Worth Trying");
+    expect(html).toContain("Real-World Ways To Use It");
+    expect(html).toContain("real routine");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");
   });
 
