@@ -306,6 +306,19 @@ function useCaseBullets(brief: ProductResearchBrief): string[] {
   return uniqueStrings(bullets).slice(0, 4);
 }
 
+function trustBullets(brief: ProductResearchBrief): string[] {
+  const signals = productSignals(brief.productType);
+  return uniqueStrings([
+    brief.category === "wellness" ? "Good fit for short breaks, travel downtime, or an evening wind-down routine" : "",
+    brief.category === "beauty" ? "Useful when shoppers want a cleaner, easier at-home care moment" : "",
+    brief.category === "home" ? "Useful when shoppers want a repeated home task to feel easier" : "",
+    signals.includes("portable") ? "Compact enough to keep close instead of storing away and forgetting" : "",
+    signals.includes("vibration") ? "Active vibration feature gives shoppers a clear reason to choose it over a basic accessory" : "",
+    signals.includes("targeted-comfort") ? "Targeted design makes the benefit easier to understand at a glance" : "",
+    "Straightforward routine fit keeps the product easy to explain and easy to gift"
+  ].filter(Boolean)).slice(0, 5);
+}
+
 function salesBlueprint(brief: ProductResearchBrief): {
   heroLead: string;
   heroBullets: string[];
@@ -323,11 +336,12 @@ function salesBlueprint(brief: ProductResearchBrief): {
     .slice(0, 3);
   const value = valueBullets(brief);
   const useCases = useCaseBullets(brief);
+  const trust = trustBullets(brief);
   return {
     heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a more useful, repeatable way to handle the moment shoppers are already trying to improve.`,
     heroBullets: value.slice(0, 4),
     demoBullets: useCases,
-    proofBullets: uniqueStrings([...value.slice(0, 3), ...visibleSpecs, `${referenceStyle} The layout keeps the main benefits, use case, and buying questions easy to scan.`]).slice(0, 5),
+    proofBullets: uniqueStrings([...trust, ...visibleSpecs, `${referenceStyle} The page keeps the main benefits, use case, and buying questions easy to scan.`]).slice(0, 5),
     comparisonRows: {
       "Basic option": "Looks similar at first glance, but may not explain when, why, or how shoppers should use it.",
       [brief.selectedTitle]: `Connects the product type to practical use cases, comfort points, and buying questions.`,
