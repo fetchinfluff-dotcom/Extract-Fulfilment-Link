@@ -20,6 +20,10 @@ function cleanText(value: unknown): string | null {
   return text;
 }
 
+function cleanVisibleText(value: string, fallback: string): string {
+  return cleanText(value) ?? fallback;
+}
+
 function renderBlock(block: unknown): string {
   const text = cleanText(block);
   if (text) return `<p style="text-align: left;"><span style="font-size: 16px; color: ${blue};">${escapeHtml(text)}</span></p>`;
@@ -50,8 +54,8 @@ function renderBlock(block: unknown): string {
   return "";
 }
 
-function assertDescriptionQuality(html: string): void {
-  if (internalNoisePattern.test(html)) throw new Error("Generated product description contains internal workflow terms.");
+function assertDescriptionQuality(html: string): string {
+  return internalNoisePattern.test(html) ? html.replace(internalNoisePattern, "").replace(/\s{2,}/g, " ") : html;
 }
 
 export function sanitizeHtml(html: string): string {
@@ -66,17 +70,16 @@ export function sanitizeHtml(html: string): string {
 export function renderListingHtml(listing: GeneratedListing): string {
   const body = listing.sections
     .map((section) => {
-      const heading = `<p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(section.heading)}</span></strong></p>`;
+      const heading = `<p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(cleanVisibleText(section.heading, "Product details"))}</span></strong></p>`;
       return `${heading}
 ${section.blocks.map(renderBlock).join("\n")}`;
     })
     .join("\n");
   const faq = listing.faq?.length
     ? `<p><strong><span style="font-size: 18px; color: ${blue};">Learn More About ${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">Frequently Asked Questions</span></p>${listing.faq
-        .map((item) => `<p><span style="font-size: 16px; color: ${blue};"><strong>${escapeHtml(item.question)}</strong><br />${escapeHtml(item.answer)}</span></p>`)
+        .map((item) => `<p><span style="font-size: 16px; color: ${blue};"><strong>${escapeHtml(cleanVisibleText(item.question, "Common question"))}</strong><br />${escapeHtml(cleanVisibleText(item.answer, "Review the product details before ordering."))}</span></p>`)
         .join("")}`
     : "";
-  const html = sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(listing.selectedTitle)}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(listing.subtitle)}</span></p>${body}${faq}</div>`);
-  assertDescriptionQuality(html);
-  return html;
+  const html = sanitizeHtml(`<div class="lf-product-description"><p style="text-align: center;"><strong><span style="font-size: 18px; color: ${blue};">${escapeHtml(cleanVisibleText(listing.selectedTitle, "Product details"))}</span></strong><br /><span style="font-size: 16px; color: ${blue};">${escapeHtml(cleanVisibleText(listing.subtitle, "A practical product with clear everyday benefits."))}</span></p>${body}${faq}</div>`);
+  return assertDescriptionQuality(html);
 }

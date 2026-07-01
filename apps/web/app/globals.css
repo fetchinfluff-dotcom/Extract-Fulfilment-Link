@@ -221,6 +221,24 @@ textarea {
   text-align: center;
 }
 
+.process-log {
+  background: #151c27;
+  border-radius: 8px;
+  color: #dbeafe;
+  display: grid;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  gap: 6px;
+  margin-top: 16px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.process-log p {
+  margin: 0;
+}
+
 .preview article {
   background: white;
   border: 1px solid var(--border);

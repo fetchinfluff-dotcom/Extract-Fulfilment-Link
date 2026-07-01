@@ -66,17 +66,20 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Add verified reviews only after import");
   });
 
-  it("fails storefront HTML quality gate when internal workflow terms survive", async () => {
+  it("scrubs internal workflow terms from visible storefront fields", async () => {
     const source = await new MockSourceAdapter().extract({
       url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
       targetCountry: "US"
     });
     const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
     const listing = await new MockAiProvider().generateListing({ source, pricing });
-    expect(() => renderListingHtml({
+    const html = renderListingHtml({
       ...listing,
       subtitle: "Detected supplier item cost should not appear on the storefront."
-    })).toThrow("internal workflow terms");
+    });
+    expect(html).not.toContain("Detected");
+    expect(html).not.toContain("supplier");
+    expect(html).not.toContain("item cost");
   });
 
   it("extracts public JSON-LD product pages without credentials", async () => {

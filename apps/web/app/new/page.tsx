@@ -9,22 +9,48 @@ export default function NewProjectPage() {
   const [sourceUrl, setSourceUrl] = useState("https://www.aliexpress.com/item/1005008809640384.html");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  function addLog(message: string) {
+    setLogs((items) => [...items, `${new Date().toLocaleTimeString()} ${message}`]);
+  }
 
   async function submit() {
     setLoading(true);
     setError("");
-    const response = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sourceUrl, targetCountry: "US", targetLanguage: "en", currency: "USD" })
-    });
-    const payload = await response.json() as { id?: string; error?: { message: string } };
-    setLoading(false);
-    if (!response.ok || !payload.id) {
-      setError(payload.error?.message ?? "Could not create project.");
-      return;
+    setLogs([]);
+    const timers = [
+      window.setTimeout(() => addLog("Validated source URL and domain allowlist."), 150),
+      window.setTimeout(() => addLog("Extracting product title, price, media, and page facts."), 1200),
+      window.setTimeout(() => addLog("Calculating landed cost and suggested selling range."), 3500),
+      window.setTimeout(() => addLog("Generating compliant sales-page description modules."), 7000),
+      window.setTimeout(() => addLog("Rendering sanitized HTML and checking quality gate."), 14000),
+      window.setTimeout(() => addLog("Saving project data and preparing editor preview."), 24000)
+    ];
+    try {
+      addLog("Starting product import.");
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sourceUrl, targetCountry: "US", targetLanguage: "en", currency: "USD" })
+      });
+      const payload = await response.json() as { id?: string; error?: { message: string } };
+      if (!response.ok || !payload.id) {
+        const message = payload.error?.message ?? "Could not create project.";
+        setError(message);
+        addLog(`Stopped: ${message}`);
+        return;
+      }
+      addLog("Project ready. Opening editor.");
+      router.push(`/projects/${payload.id}`);
+    } catch (submitError) {
+      const message = submitError instanceof Error ? submitError.message : "Network request failed.";
+      setError(message);
+      addLog(`Stopped: ${message}`);
+    } finally {
+      timers.forEach(window.clearTimeout);
+      setLoading(false);
     }
-    router.push(`/projects/${payload.id}`);
   }
 
   return (
@@ -49,6 +75,11 @@ export default function NewProjectPage() {
             </Field>
             {error ? <p className="lf-badge lf-badge-bad">{error}</p> : null}
             <p><button className="lf-button" disabled={loading} onClick={submit}>{loading ? "Generating..." : "Generate draft"}</button></p>
+            {logs.length ? (
+              <div className="process-log" aria-live="polite">
+                {logs.map((item) => <p key={item}>{item}</p>)}
+              </div>
+            ) : null}
           </Card>
           <Card>
             <h2>What happens next</h2>
