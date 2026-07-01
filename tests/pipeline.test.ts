@@ -37,6 +37,8 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Add verified reviews only after import");
     expect(html).not.toContain("fake urgency");
     expect(html).not.toContain("unsupported reviews");
+    expect(html).not.toContain("benefit-led wording");
+    expect(html).not.toContain("supplied facts");
     expect(html).toContain("What You Can Check Before Ordering");
     expect(html).toContain("Details You Can Review With Confidence");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");

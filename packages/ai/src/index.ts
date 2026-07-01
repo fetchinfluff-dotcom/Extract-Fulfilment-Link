@@ -32,6 +32,10 @@ function capitalize(value: string): string {
   return value ? `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}` : value;
 }
 
+function titleCase(value: string): string {
+  return value.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function sourceSentence(value: string | null | undefined, fallback: string): string {
   const sentence = value?.replace(/\s+/g, " ").split(/[.!?]/).find((item) => item.trim().length > 30)?.trim();
   return sentence ? `${sentence}.` : fallback;
@@ -214,12 +218,15 @@ function salesBlueprint(brief: ProductResearchBrief): {
     .filter(([key]) => key !== "Product type")
     .map(([key, value]) => `${key}: ${value}`)
     .slice(0, 3);
+  const packageProof = brief.packageItems.length === 1
+    ? `${brief.packageItems[0]} included`
+    : `${brief.packageItems.length} included items listed`;
   return {
     heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a clear use case, easy-to-check details, and a smoother way to decide if it fits your needs.`,
     heroBullets: [
       `Made for ${moment} without a complicated learning curve`,
-      `Product images help shoppers inspect the shape, finish, and included details`,
-      `Simple benefit-led wording explains what the ${noun} is useful for`,
+      `Clear photos make the shape, finish, and included details easier to inspect`,
+      `Simple benefits show how the ${noun} can fit into regular use`,
       `FAQ and specs answer common pre-purchase questions in plain language`
     ],
     demoBullets: [
@@ -229,10 +236,10 @@ function salesBlueprint(brief: ProductResearchBrief): {
       `Use the package and specification details to confirm what is included`
     ],
     proofBullets: uniqueStrings([
-      `${brief.media.length} product images available for visual inspection`,
+      "Multiple product photos help you inspect the item before checkout",
       ...visibleSpecs,
-      `${brief.packageItems.length} included item${brief.packageItems.length === 1 ? "" : "s"} listed`,
-      "Benefits stay tied to visible product details and supplied facts"
+      packageProof,
+      "Benefits stay focused on visible product details"
     ]).slice(0, 5),
     comparisonRows: {
       "Basic option": "Lists features but leaves shoppers guessing how the item fits daily use.",
@@ -341,10 +348,10 @@ export class MockAiProvider implements AiProvider {
         { title: `${brief.productType} with Clear Product Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: brief.productType, riskNotes: [] }
       ],
       selectedTitle: brief.selectedTitle,
-      subtitle: `${brief.productType} with clear benefits, visual proof points, and shopper-friendly product details.`,
+      subtitle: `${brief.productType} with clear benefits, useful visuals, and easy-to-review product details.`,
       heroBenefits: copy.heroBullets.slice(0, 4),
       sections: [
-        { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${capitalize(shopperMoment(brief.category))} Easier`, blocks: [imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
+        { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${titleCase(shopperMoment(brief.category))} Easier`, blocks: [imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
         { key: "trust-strip", type: "package", heading: "What You Can Check Before Ordering", blocks: [{ type: "list", items: copy.proofBullets }], factIds: brief.factIds },
         { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, `${brief.productType} is framed around a simple outcome: less guessing, clearer product details, and a smoother decision for shoppers who want the right fit for their routine.`, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
         { key: "product-demo", type: "demo", heading: "See The Details Before You Decide", blocks: [brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
