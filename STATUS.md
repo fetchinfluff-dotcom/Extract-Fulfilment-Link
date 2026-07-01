@@ -77,6 +77,7 @@
 - Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Supabase migration applied: `audit_logs`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
+- Production verify after auth/workspace wiring: `GET /login` -> 200, `GET /new` -> 200, unauthenticated `POST /api/projects` -> 401 `UNAUTHENTICATED`.
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008809640384.html` -> 201, project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269`
