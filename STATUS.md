@@ -32,6 +32,9 @@
 - [x] Reference section-map analyzer now detects per-section intent/media density and can influence deterministic layout while preserving no-copy safeguards.
 - [x] Description fallback no longer uses hollow image-inspection bullets; base copy now emphasizes use cases, comfort/value outcomes, and compliant trust sections without fake reviews.
 - [x] Customer-proof copy now renders real-world scenario blocks instead of fake reviews, ratings, testimonials, or hollow inspection guidance.
+- [x] Sales-page QA regression tests now flag common hollow commerce filler and fake review/rating social-proof patterns.
+- [x] Sales-page output now uses a typed block schema and rejects hollow/short/repetitive AI section patches before they replace the deterministic base draft.
+- [x] Created local Codex skill `find-similar-dropship-products` for safe similar-product/reference research, scoring similarity, dropship likelihood, and reusable sales-page signals without copying fake proof.
 - [x] Application UI refreshed into a dark technical ListingForge console inspired by the sample project, covering landing, dashboard, import flow, and project editor without adding fake metrics or unsupported claims.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] Project create, HTML edit, and export actions write `audit_logs` events when Supabase persistence is enabled.
@@ -75,6 +78,8 @@
 - Passed after reference section-map hardening: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after sales-copy cleanup: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after real-world scenario blocks: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Passed after sales-page QA regression tests: `pnpm vitest run tests/pipeline.test.ts` (1 file, 14 tests), `pnpm lint`, `pnpm typecheck`, `pnpm test` (4 files, 22 tests), `pnpm build`
+- Passed after typed block and hollow-copy gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 14 tests), `pnpm test` (4 files, 22 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 7 images, 3 FAQ, and description quality score 100.
 - Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after technical UI refresh: `pnpm test` (4 files, 20 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; browser checks for `/`, `/new`, `/dashboard`, and generated project editor at desktop/mobile found no real horizontal scrolling.
 - Supabase migration applied: `audit_logs`

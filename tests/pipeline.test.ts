@@ -5,6 +5,33 @@ import { renderListingHtml, sanitizeHtml, scoreDescriptionHtmlQuality } from "@l
 import { calculatePricing } from "@listingforge/pricing";
 import { GeneratedListingSchema, SourceProductSchema } from "@listingforge/schemas";
 
+const hollowSalesCopyPatterns = [
+  /\bgame[- ]changer\b/i,
+  /\bmust[- ]have\b/i,
+  /\brevolutionary\b/i,
+  /\bsay goodbye to\b/i,
+  /\bultimate solution\b/i,
+  /\bpremium quality\b/i,
+  /\bperfect for everyone\b/i,
+  /\bdesigned with you in mind\b/i,
+  /\belevate your\b/i,
+  /\bunleash\b/i
+];
+
+const fakeReviewPatterns = [
+  /\bverified (?:buyer|purchase|customer)\b/i,
+  /\brated\s+\d+(?:\.\d+)?\b/i,
+  /\b\d+(?:\.\d+)?\s*(?:out of 5|stars?)\b/i,
+  /\b\d[\d,]*\s+(?:happy\s+)?customers\b/i,
+  /\bcustomers?\s+(?:love|say|rave|agree)\b/i,
+  /\btestimonial\b/i,
+  /\u2605{3,}/
+];
+
+function expectNoPatterns(value: string, patterns: RegExp[]): void {
+  for (const pattern of patterns) expect(value).not.toMatch(pattern);
+}
+
 describe("fixture pipeline", () => {
   it("extracts, prices, generates, and sanitizes", async () => {
     const source = await new MockSourceAdapter().extract({
@@ -123,6 +150,50 @@ describe("fixture pipeline", () => {
     expect(quality.checks.enoughImages).toBe(true);
     expect(quality.checks.hasFaq).toBe(true);
     expect(quality.checks.noInternalNoise).toBe(true);
+  });
+
+  it("keeps generated sales-page copy specific instead of hollow filler", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    const html = renderListingHtml(listing);
+
+    expectNoPatterns(html, hollowSalesCopyPatterns);
+  });
+
+  it("does not turn customer-proof areas into fake reviews or ratings", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: 0 });
+    const listing = await new MockAiProvider().generateListing({
+      source,
+      pricing,
+      referencePages: [{
+        url: "https://example.com/reference",
+        title: "Reference title that must not be copied",
+        metaDescription: "Reference description that must not be copied",
+        headings: ["Customer Reviews", "Verified Buyer Results", "Rated 4.9 Stars"],
+        sections: [{ key: "customer-proof", heading: "Copied review heading", intent: "Reserve proof area for merchant-provided reviews only.", mediaCount: 0 }],
+        imageCount: 3,
+        videoCount: 0,
+        sectionPatterns: ["customer proof section"],
+        styleSignals: ["review-led proof"],
+        warnings: []
+      }]
+    });
+    const html = renderListingHtml(listing);
+
+    expect(html).toContain("Real-World Ways To Use It");
+    expectNoPatterns(html, fakeReviewPatterns);
+    expect(html).not.toContain("Customer Reviews");
+    expect(html).not.toContain("Verified Buyer Results");
+    expect(html).not.toContain("Rated 4.9 Stars");
+    expect(html).not.toContain("Copied review heading");
   });
 
   it("extracts public JSON-LD product pages without credentials", async () => {

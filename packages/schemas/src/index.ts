@@ -64,6 +64,14 @@ export const SourceProductSchema = z.object({
 });
 export type SourceProduct = z.infer<typeof SourceProductSchema>;
 
+export const ListingBlockSchema = z.union([
+  z.string(),
+  z.object({ type: z.literal("list"), items: z.array(z.string().min(1)).min(1).max(8) }),
+  z.object({ type: z.literal("image"), url: z.url(), alt: z.string().min(1), role: z.string().optional() }),
+  z.object({ type: z.literal("table"), rows: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) })
+]);
+export type ListingBlock = z.infer<typeof ListingBlockSchema>;
+
 export const GeneratedListingSchema = z.object({
   category: z.string(),
   subcategory: z.string().nullable().optional(),
@@ -86,7 +94,7 @@ export const GeneratedListingSchema = z.object({
       key: z.string(),
       type: z.string(),
       heading: z.string(),
-      blocks: z.array(z.unknown()),
+      blocks: z.array(ListingBlockSchema),
       mediaAssetIds: z.array(z.string()).optional(),
       factIds: z.array(z.string()),
       placeholder: z.boolean().optional()

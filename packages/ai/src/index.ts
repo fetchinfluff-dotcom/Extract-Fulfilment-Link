@@ -1,6 +1,6 @@
 import type { AppEnv } from "@listingforge/config";
 import type { PricingResult } from "@listingforge/pricing";
-import { GeneratedListingSchema, type GeneratedListing, type SourceProduct } from "@listingforge/schemas";
+import { GeneratedListingSchema, ListingBlockSchema, type GeneratedListing, type ListingBlock, type SourceProduct } from "@listingforge/schemas";
 
 export type ReferencePageBlueprint = {
   url: string;
@@ -191,7 +191,7 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       problemBody: `${productType} gives shoppers a practical way to add useful function to everyday spaces without making the setup feel complicated.`,
       outcomeHeading: "Useful function, cleaner everyday use",
       outcomeBody: `The design keeps ${name} simple to understand, easy to place, and practical for regular use.`,
-      benefits: ["Adds useful function without a complicated setup", "Compact details make it easier to place and use", "Clear controls or parts are easy to inspect", "Practical design for daily routines"],
+      benefits: ["Adds useful function without a complicated setup", "Compact details make it easier to place and use", "Clear controls help shoppers understand the routine before checkout", "Practical design for daily routines"],
       useSteps: ["Place or prepare the product where you need it", "Use the available controls or options", "Store, charge, or reset it as instructed"],
       whyChoose: ["Practical for everyday spaces", "Designed to reduce setup friction", "Built for shoppers who prefer useful, simple gadgets"]
     },
@@ -201,7 +201,7 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       problemBody: `${productType} helps pet owners add a practical tool to their care routine without making the process feel harder than it needs to be.`,
       outcomeHeading: "Made for simple pet-care routines",
       outcomeBody: `Use ${name} when you want a product that is simple to bring into daily care.`,
-      benefits: ["Designed for everyday pet-care routines", "Simple details make it easier to compare options", "Practical structure for regular use", "Clear images help shoppers inspect the product"],
+      benefits: ["Designed for everyday pet-care routines", "Simple details make it easier to compare options", "Practical structure for regular use", "Helps owners understand where the product fits in daily care"],
       useSteps: ["Choose the option that fits your pet", "Use it as shown in the product details", "Clean or store it according to the instructions"],
       whyChoose: ["Made for routine care", "Easy to compare before checkout", "Practical for pet owners who want simple tools"]
     },
@@ -211,7 +211,7 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       problemBody: `${productType} helps shoppers bring a more organized, practical tool into the home without unnecessary complexity.`,
       outcomeHeading: "A cleaner way to keep daily tasks moving",
       outcomeBody: `The product is easy to compare visually and simple to add to a kitchen, cleaning, storage, or home routine.`,
-      benefits: ["Helps simplify common home tasks", "Practical design for regular use", "Easy to store or keep nearby", "Product images make the details easy to inspect"],
+      benefits: ["Helps simplify common home tasks", "Practical design for regular use", "Easy to store or keep nearby", "Helps shoppers see how the product fits into the repeated task"],
       useSteps: ["Prepare the product where you need it", "Use it for the intended home task", "Clean or store it after use"],
       whyChoose: ["Straightforward enough for everyday use", "Useful in common home routines", "Designed to make a repeated task feel easier"]
     },
@@ -231,7 +231,7 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       problemBody: `${productType} combines practical design with a simple user experience, helping shoppers solve common small frustrations without extra complexity.`,
       outcomeHeading: "Need convenient results without extra effort?",
       outcomeBody: `This product is designed to be easy to understand, easy to compare, and simple to bring into daily life.`,
-      benefits: ["Practical design for everyday use", "Simple details make it easier to compare", "Easy to bring into a routine", "Clear product images support confident buying decisions"],
+      benefits: ["Practical design for everyday use", "Simple details make it easier to compare", "Easy to bring into a routine", "Answers the basic buying questions before checkout"],
       useSteps: ["Choose the option that fits your needs", "Use the product as shown in the details", "Store or care for it according to the instructions"],
       whyChoose: ["Practical design", "Focused everyday use", "Clear product details before checkout"]
     }
@@ -367,7 +367,7 @@ function salesBlueprint(brief: ProductResearchBrief): {
     heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a more useful, repeatable way to handle the moment shoppers are already trying to improve.`,
     heroBullets: value.slice(0, 4),
     demoBullets: useCases,
-    proofBullets: uniqueStrings([...trust, ...visibleSpecs, `${referenceStyle} The page keeps the main benefits, use case, and buying questions easy to scan.`]).slice(0, 5),
+    proofBullets: uniqueStrings([...trust, ...visibleSpecs, `${referenceStyle} Each section answers when to use it, what to expect, and what to confirm before checkout.`]).slice(0, 5),
     scenarios: scenarioBlocks(brief),
     comparisonRows: {
       "Basic option": "Looks similar at first glance, but may not explain when, why, or how shoppers should use it.",
@@ -403,8 +403,8 @@ function buildResearchBrief(input: GenerateInput): ProductResearchBrief {
     selectedTitle,
     category,
     subtitle: `${productType} combines practical design with reliable everyday use.`,
-    intro: sourceSentence(input.source.sourceDescriptionText, `${productType} is made for shoppers who want a useful product that is easy to understand, compare, and bring into daily life.`),
-    demoBody: `Use the product images to inspect the shape, parts, finish, and available options before you decide.`,
+    intro: sourceSentence(input.source.sourceDescriptionText, `${productType} is made for shoppers who want one practical upgrade they can place into a real routine without extra setup friction.`),
+    demoBody: `${productType} should be shown in the moment it is used, then supported with close-up visuals for controls, fit, parts, or included items when those details are available.`,
     benefits,
     useSteps: useSteps.length ? useSteps : profile.useSteps,
     whyChoose: profile.whyChoose,
@@ -463,7 +463,8 @@ export class MockAiProvider implements AiProvider {
   async generateListing(input: GenerateInput): Promise<GeneratedListing> {
     const brief = buildResearchBrief(input);
     const copy = salesBlueprint(brief);
-    const imageBlock = (index: number, role: string) => brief.media[index] ? { type: "image", url: brief.media[index].url, alt: `${brief.productType} ${role} image`, role } : null;
+    const imageBlock = (index: number, role: string): ListingBlock | null => brief.media[index] ? { type: "image", url: brief.media[index].url, alt: `${brief.productType} ${role} image`, role } : null;
+    const blocks = (...items: Array<ListingBlock | null>): ListingBlock[] => items.filter((item): item is ListingBlock => item !== null);
     return GeneratedListingSchema.parse({
       category: brief.category,
       subcategory: null,
@@ -478,26 +479,26 @@ export class MockAiProvider implements AiProvider {
         { title: `${brief.productType} with Clear Product Details`, pattern: "Trust-first title without unsupported claims", mainKeyword: brief.productType, riskNotes: [] }
       ],
       selectedTitle: brief.selectedTitle,
-      subtitle: `${brief.productType} with clear benefits, useful visuals, and easy-to-review product details.`,
+      subtitle: `${brief.productType} with practical benefits, real-use guidance, and reviewable product details.`,
       heroBenefits: copy.heroBullets.slice(0, 4),
       sections: [
-        { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${titleCase(shopperMoment(brief.category))} Easier`, blocks: [imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
-        { key: "trust-strip", type: "package", heading: "Built For The Moments You Actually Use It", blocks: [{ type: "list", items: copy.proofBullets }], factIds: brief.factIds },
-        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, `${brief.productType} is positioned around a simple outcome: make the routine feel easier to start, easier to repeat, and more comfortable to keep using.`, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
-        { key: "product-demo", type: "demo", heading: "How It Helps In Real Use", blocks: [brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
-        { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: [{ type: "list", items: brief.benefits.slice(0, 4).map((item) => `${item} - explained in clear, shopper-friendly language.`) }, imageBlock(3, "benefit")], mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
-        { key: "how-it-works", type: "how-it-works", heading: hasReferenceSection(brief, "how-it-works") ? "A Simple Way To Use It" : "How It Fits Into Daily Use", blocks: [`Start with the visible product details, then use the simple steps below to understand how ${brief.productType.toLowerCase()} fits into ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")], mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
-        { key: "why-choose", type: "comparison", heading: hasReferenceSection(brief, "comparison") ? `${brief.selectedTitle} vs. A Basic Option` : `Why Choose ${brief.selectedTitle}?`, blocks: [{ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }], factIds: brief.factIds },
-        { key: "customer-proof", type: "trust", heading: "Real-World Ways To Use It", blocks: [...copy.scenarios, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
-        { key: "specifications", type: "specifications", heading: "Product details", blocks: [{ type: "table", rows: brief.specs }, imageBlock(5, "specification")], mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
-        { key: "package-contents", type: "package", heading: "Package Includes", blocks: [`Your selected option includes the core items needed to start using ${brief.productType.toLowerCase()} as part of the intended routine.`, { type: "list", items: brief.packageItems }], factIds: brief.factIds },
-        { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: [`Review the selected option, package details, and product images to make sure ${brief.productType.toLowerCase()} matches your intended use.`], factIds: brief.factIds },
-        { key: "final-cta-reviews", type: "cta", heading: `Ready To Make ${shopperMoment(brief.category)} Simpler?`, blocks: [imageBlock(6, "final"), copy.finalCta], mediaAssetIds: brief.media[6] ? ["media-7"] : [], factIds: brief.factIds }
+        { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${titleCase(shopperMoment(brief.category))} Easier`, blocks: blocks(imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }), mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
+        { key: "trust-strip", type: "package", heading: "Built For The Moments You Actually Use It", blocks: blocks({ type: "list", items: copy.proofBullets }), factIds: brief.factIds },
+        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: blocks(brief.problemBody, `${brief.productType} is positioned around a simple outcome: make the routine feel easier to start, easier to repeat, and more comfortable to keep using.`, imageBlock(1, "detail")), mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
+        { key: "product-demo", type: "demo", heading: "How It Helps In Real Use", blocks: blocks(brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }), mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
+        { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: blocks({ type: "list", items: copy.heroBullets.slice(0, 4) }, imageBlock(3, "benefit")), mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
+        { key: "how-it-works", type: "how-it-works", heading: hasReferenceSection(brief, "how-it-works") ? "A Simple Way To Use It" : "How It Fits Into Daily Use", blocks: blocks(`Use it in short, repeatable moments so ${brief.productType.toLowerCase()} feels easy to keep in ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")), mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
+        { key: "why-choose", type: "comparison", heading: hasReferenceSection(brief, "comparison") ? `${brief.selectedTitle} vs. A Basic Option` : `Why Choose ${brief.selectedTitle}?`, blocks: blocks({ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }), factIds: brief.factIds },
+        { key: "customer-proof", type: "trust", heading: "Real-World Ways To Use It", blocks: blocks(...copy.scenarios, { type: "list", items: copy.proofBullets.slice(0, 4) }), factIds: brief.factIds },
+        { key: "specifications", type: "specifications", heading: "Product details", blocks: blocks({ type: "table", rows: brief.specs }, imageBlock(5, "specification")), mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
+        { key: "package-contents", type: "package", heading: "Package Includes", blocks: blocks(`Your selected option includes the core items needed to start using ${brief.productType.toLowerCase()} as part of the intended routine.`, { type: "list", items: brief.packageItems }), factIds: brief.factIds },
+        { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: blocks(`Before checkout, confirm the variant, included items, and care or setup details match where you plan to use ${brief.productType.toLowerCase()}.`), factIds: brief.factIds },
+        { key: "final-cta-reviews", type: "cta", heading: `Ready To Make ${shopperMoment(brief.category)} Simpler?`, blocks: blocks(imageBlock(6, "final"), copy.finalCta), mediaAssetIds: brief.media[6] ? ["media-7"] : [], factIds: brief.factIds }
       ],
       faq: brief.faq.map((item) => ({ ...item, factIds: brief.factIds })),
       seo: {
         metaTitle: brief.selectedTitle.slice(0, 60),
-        metaDescription: `${brief.productType} product page with clear benefits, useful images, practical details, and an easy-to-review FAQ.`.slice(0, 155),
+        metaDescription: `${brief.productType} page with practical benefits, real-use scenarios, product details, and factual FAQ answers.`.slice(0, 155),
         handle: slugify(brief.selectedTitle),
         imageAltTexts: input.source.media.map((media, index) => ({ assetId: `media-${index + 1}`, alt: `${brief.productType} product image ${index + 1}` }))
       },
@@ -505,7 +506,7 @@ export class MockAiProvider implements AiProvider {
         "@context": "https://schema.org",
         "@type": "Product",
         name: brief.selectedTitle,
-        description: `${brief.productType} product page with clear benefits and practical details.`
+        description: `${brief.productType} page with practical benefits and real-use scenarios.`
       },
       compliance: {
         warnings: [
@@ -792,7 +793,8 @@ function applySectionsPatch(listing: GeneratedListing, value: unknown): void {
     if (!section) continue;
     if (typeof patch.heading === "string" && !hasInternalNoise(patch.heading)) section.heading = patch.heading.slice(0, 110);
     const fixedBlocks = section.blocks.filter((block) => isRecord(block) && (block.type === "image" || block.type === "table"));
-    section.blocks = [...fixedBlocks, ...patch.blocks.map(cleanBlock).filter(Boolean)].slice(0, 4);
+    const patchedBlocks = patch.blocks.map(cleanBlock).filter(isListingBlock);
+    if (patchedBlocks.length) section.blocks = [...fixedBlocks, ...patchedBlocks].slice(0, 4);
   }
 }
 
@@ -806,10 +808,32 @@ function applyFaqPatch(listing: GeneratedListing, value: unknown): void {
 }
 
 function cleanBlock(block: unknown): unknown {
-  if (typeof block === "string") return hasInternalNoise(block) ? null : block.slice(0, 900);
+  if (typeof block === "string") {
+    const text = block.replace(/\s+/g, " ").trim();
+    return hasInternalNoise(text) || hasHollowCopy(text) || text.length < 24 ? null : text.slice(0, 900);
+  }
   if (!isRecord(block)) return null;
-  if (block.type === "list" && Array.isArray(block.items)) return { type: "list", items: block.items.map(String).filter((item) => !hasInternalNoise(item)).slice(0, 6) };
-  return typeof block.text === "string" && !hasInternalNoise(block.text) ? block.text.slice(0, 900) : null;
+  if (block.type === "list" && Array.isArray(block.items)) {
+    const items = block.items
+      .map((item) => String(item).replace(/\s+/g, " ").trim())
+      .filter((item) => item.length >= 16 && !hasInternalNoise(item) && !hasHollowCopy(item))
+      .slice(0, 6);
+    const parsed = ListingBlockSchema.safeParse({ type: "list", items });
+    return parsed.success ? parsed.data : null;
+  }
+  if (block.type === "table" && isRecord(block.rows)) {
+    const rows = Object.fromEntries(Object.entries(block.rows).flatMap(([key, value]) => {
+      if (!["string", "number", "boolean"].includes(typeof value) || hasInternalNoise(key) || hasHollowCopy(key)) return [];
+      return [[key, value]];
+    }));
+    const parsed = ListingBlockSchema.safeParse({ type: "table", rows });
+    return parsed.success ? parsed.data : null;
+  }
+  return typeof block.text === "string" && !hasInternalNoise(block.text) && !hasHollowCopy(block.text) ? block.text.slice(0, 900) : null;
+}
+
+function isListingBlock(block: unknown): block is ListingBlock {
+  return ListingBlockSchema.safeParse(block).success;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -820,13 +844,28 @@ function hasInternalNoise(value: string): boolean {
   return /\b(?:detected|supplier|item cost|shipping cost)\b|\b(?:price|shipping)\s*:|\$\d|\[object Object\]|verified reviews only after import/i.test(value);
 }
 
+function hasHollowCopy(value: string): boolean {
+  return /\b(?:visible product details|product images to inspect|easy to inspect|clear product details|useful visuals|explained in clear|shopper-friendly language|matches your intended use|practical product designed for everyday use in its category|buying questions easy to scan)\b/i.test(value);
+}
+
 function listingQuality(listing: GeneratedListing): { score: number; weakSectionKeys: string[] } {
   const imageCount = listing.sections.flatMap((section) => section.blocks).filter((block) => isRecord(block) && block.type === "image").length;
   const bulletCount = listing.sections.flatMap((section) => section.blocks).reduce<number>((total, block) => (
     total + (isRecord(block) && block.type === "list" && Array.isArray(block.items) ? block.items.length : 0)
   ), 0);
+  const allCopy = JSON.stringify(listing.sections);
   const weakSectionKeys = listing.sections
-    .filter((section) => section.blocks.filter(Boolean).length < 2 && !["specifications", "package-contents", "guarantee-faq"].includes(section.key))
+    .filter((section) => {
+      if (["specifications", "package-contents", "guarantee-faq"].includes(section.key)) return false;
+      const copy = section.blocks.flatMap((block) => {
+        if (typeof block === "string") return [block];
+        if (isRecord(block) && block.type === "list" && Array.isArray(block.items)) return block.items.map(String);
+        if (isRecord(block) && block.type === "table" && isRecord(block.rows)) return Object.values(block.rows).map(String);
+        return [];
+      });
+      const normalized = copy.map((item) => item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()).filter(Boolean);
+      return section.blocks.filter(Boolean).length < 2 || copy.some(hasHollowCopy) || new Set(normalized).size < normalized.length;
+    })
     .map((section) => section.key)
     .slice(0, 4);
   const checks = [
@@ -835,7 +874,8 @@ function listingQuality(listing: GeneratedListing): { score: number; weakSection
     listing.sections.length >= 10,
     (listing.faq?.length ?? 0) >= 3,
     weakSectionKeys.length === 0,
-    !hasInternalNoise(JSON.stringify(listing.sections))
+    !hasInternalNoise(allCopy),
+    !hasHollowCopy(allCopy)
   ];
   return { score: Math.round((checks.filter(Boolean).length / checks.length) * 100), weakSectionKeys };
 }
