@@ -39,8 +39,16 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("unsupported reviews");
     expect(html).not.toContain("benefit-led wording");
     expect(html).not.toContain("supplied facts");
-    expect(html).toContain("What You Can Check Before Ordering");
-    expect(html).toContain("Details You Can Review With Confidence");
+    expect(html).not.toContain("Multiple product photos help you inspect");
+    expect(html).not.toContain("Benefits stay focused on visible product details");
+    expect(html).not.toContain("Check the first image");
+    expect(html).not.toContain("Review close-up images");
+    expect(html).not.toContain("Use the package and specification details");
+    expect(html).not.toContain("according to the included instructions");
+    expect(html).not.toContain("verified customer");
+    expect(html).not.toContain("★★★★★");
+    expect(html).toContain("Built For The Moments You Actually Use It");
+    expect(html).toContain("Why It Feels Worth Trying");
     expect(sanitizeHtml('<section onclick="x"><script>alert(1)</script><h2>Ok</h2></section>')).toBe("<section><h2>Ok</h2></section>");
   });
 

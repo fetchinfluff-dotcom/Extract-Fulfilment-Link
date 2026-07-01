@@ -172,8 +172,8 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       outcomeHeading: "Designed for a smoother self-care moment",
       outcomeBody: `Bring ${name} into your routine when you want a product that feels easy to understand, easy to use, and easy to store.`,
       benefits: ["Supports a simple at-home routine", "Keeps daily care easier to organize", "Designed for straightforward everyday use", "Clear details help shoppers choose with confidence"],
-      useSteps: ["Choose the option that fits your routine", "Use it as shown in the product images", "Store it cleanly after each use"],
-      whyChoose: ["Simple enough for regular use", "Easy to compare from the product images", "Made for shoppers who prefer practical beauty tools"]
+      useSteps: ["Set it up where your routine already happens", "Use a short session first to find a comfortable pace", "Clean or store it after use so it is ready next time"],
+      whyChoose: ["Simple enough for regular use", "Designed for a cleaner at-home routine", "Made for shoppers who prefer practical beauty tools"]
     },
     wellness: {
       targetBuyer: "Shoppers looking for practical comfort and daily support",
@@ -182,8 +182,8 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       outcomeHeading: "Comfort-focused design for everyday use",
       outcomeBody: `Use ${name} when you want a straightforward product that fits naturally into your daily routine.`,
       benefits: ["Built around everyday comfort", "Simple setup keeps the routine easy", "Practical design for regular use", "Clear product details make choosing easier"],
-      useSteps: ["Review the fit or option before use", "Use it according to the included instructions", "Keep it ready for your next routine"],
-      whyChoose: ["Useful for daily routines", "Easy to review before checkout", "Designed around comfort, fit, and practical use"]
+      useSteps: ["Start with a short comfort session", "Adjust the fit or setting until it feels natural", "Keep it nearby for your next screen break, rest period, or evening routine"],
+      whyChoose: ["Useful for daily routines", "Built around comfort and repeatable use", "Designed around comfort, fit, and practical use"]
     },
     tech: {
       targetBuyer: "Shoppers comparing useful everyday gadgets",
@@ -193,14 +193,14 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       outcomeBody: `The design keeps ${name} simple to understand, easy to place, and practical for regular use.`,
       benefits: ["Adds useful function without a complicated setup", "Compact details make it easier to place and use", "Clear controls or parts are easy to inspect", "Practical design for daily routines"],
       useSteps: ["Place or prepare the product where you need it", "Use the available controls or options", "Store, charge, or reset it as instructed"],
-      whyChoose: ["Practical for everyday spaces", "Product images make the details easy to inspect", "Built for shoppers who prefer useful, simple gadgets"]
+      whyChoose: ["Practical for everyday spaces", "Designed to reduce setup friction", "Built for shoppers who prefer useful, simple gadgets"]
     },
     pet: {
       targetBuyer: "Pet owners looking for practical daily-care products",
       problemHeading: "Looking for an easier way to care for your pet?",
       problemBody: `${productType} helps pet owners add a practical tool to their care routine without making the process feel harder than it needs to be.`,
       outcomeHeading: "Made for simple pet-care routines",
-      outcomeBody: `Use ${name} when you want a product that is easy to review, easy to compare, and simple to bring into daily care.`,
+      outcomeBody: `Use ${name} when you want a product that is simple to bring into daily care.`,
       benefits: ["Designed for everyday pet-care routines", "Simple details make it easier to compare options", "Practical structure for regular use", "Clear images help shoppers inspect the product"],
       useSteps: ["Choose the option that fits your pet", "Use it as shown in the product details", "Clean or store it according to the instructions"],
       whyChoose: ["Made for routine care", "Easy to compare before checkout", "Practical for pet owners who want simple tools"]
@@ -213,7 +213,7 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       outcomeBody: `The product is easy to compare visually and simple to add to a kitchen, cleaning, storage, or home routine.`,
       benefits: ["Helps simplify common home tasks", "Practical design for regular use", "Easy to store or keep nearby", "Product images make the details easy to inspect"],
       useSteps: ["Prepare the product where you need it", "Use it for the intended home task", "Clean or store it after use"],
-      whyChoose: ["Straightforward enough for everyday use", "Useful in common home routines", "Easy to review from the product details"]
+      whyChoose: ["Straightforward enough for everyday use", "Useful in common home routines", "Designed to make a repeated task feel easier"]
     },
     apparel: {
       targetBuyer: "Shoppers comparing fit, comfort, and everyday wear",
@@ -221,9 +221,9 @@ function profileFor(category: string, productType: string): Pick<ProductResearch
       problemBody: `${productType} helps shoppers compare style, fit, and practical details before choosing the option that works best for them.`,
       outcomeHeading: "Made to feel easy to choose",
       outcomeBody: `Review the images, sizing details, and available options to decide whether ${name} fits your wardrobe or routine.`,
-      benefits: ["Designed around everyday wear", "Visual details make fit easier to compare", "Simple option review before checkout", "Practical style for regular use"],
-      useSteps: ["Review size and option details", "Compare the product images", "Choose the option that matches your use case"],
-      whyChoose: ["Easy to compare visually", "Focused on practical everyday wear", "Clear details before checkout"]
+      benefits: ["Designed around everyday wear", "Made to support a more comfortable fit", "Simple option choice before checkout", "Practical style for regular use"],
+      useSteps: ["Choose the size or option that matches your routine", "Pair it with the outfit or activity it is meant for", "Follow the care details so it stays ready for regular wear"],
+      whyChoose: ["Made for practical everyday wear", "Focused on comfort and fit", "Clear details before checkout"]
     },
     general: {
       targetBuyer: "Shoppers comparing practical product upgrades",
@@ -254,6 +254,58 @@ function hasReferenceSection(brief: ProductResearchBrief, key: string): boolean 
   return brief.referenceBlueprint.sectionMap.some((section) => section.key === key);
 }
 
+function productSignals(productType: string): string[] {
+  const text = productType.toLowerCase();
+  return [
+    /massage|massager/.test(text) ? "massage" : "",
+    /vibration|vibrat/.test(text) ? "vibration" : "",
+    /foldable|folding|portable|compact/.test(text) ? "portable" : "",
+    /heat|warm|thermal/.test(text) ? "heat" : "",
+    /cool|cold/.test(text) ? "cooling" : "",
+    /usb|charge|recharge|battery|cordless/.test(text) ? "rechargeable" : "",
+    /led|light|red light/.test(text) ? "light" : "",
+    /eye|neck|back|knee|foot|ankle|waist/.test(text) ? "targeted-comfort" : ""
+  ].filter(Boolean);
+}
+
+function valueBullets(brief: ProductResearchBrief): string[] {
+  const signals = productSignals(brief.productType);
+  const moment = shopperMoment(brief.category);
+  const bySignal = [
+    signals.includes("massage") ? `Creates a focused relaxation moment for ${moment}` : "",
+    signals.includes("vibration") ? "Vibration mode adds a gentle, active comfort sensation instead of a plain passive accessory" : "",
+    signals.includes("portable") ? "Foldable, compact design makes it easier to keep nearby, store, or pack for travel" : "",
+    signals.includes("heat") ? "Warming function adds a cozy feel for short rest sessions" : "",
+    signals.includes("cooling") ? "Cooling design supports a fresher, more comfortable use experience" : "",
+    signals.includes("rechargeable") ? "Rechargeable or cable-powered setup helps avoid a cluttered routine" : "",
+    signals.includes("light") ? "Light-based design gives the product a more guided, modern routine feel" : "",
+    signals.includes("targeted-comfort") ? "Targeted shape focuses the product on the area shoppers actually want to support" : ""
+  ].filter(Boolean);
+  const byCategory: Record<string, string[]> = {
+    wellness: ["Useful for screen-heavy days, travel downtime, or a short evening reset", "Designed to make comfort feel easier to repeat, not harder to start"],
+    beauty: ["Fits neatly into an at-home self-care routine", "Helps make the routine feel more organized and intentional"],
+    tech: ["Adds a useful function without making the setup feel complicated", "Works as a practical upgrade for everyday spaces"],
+    home: ["Helps simplify a repeated home task", "Keeps the routine cleaner, quicker, or easier to manage"],
+    pet: ["Built around simple daily care for pet owners", "Helps make a repeated care moment easier to handle"],
+    apparel: ["Made for regular wear where comfort and fit matter", "Easy to style into a daily outfit or routine"]
+  };
+  return uniqueStrings([...bySignal, ...(byCategory[brief.category] ?? byCategory.wellness!), ...brief.benefits]).slice(0, 5);
+}
+
+function useCaseBullets(brief: ProductResearchBrief): string[] {
+  const signals = productSignals(brief.productType);
+  const bullets = [
+    brief.category === "wellness" ? "Use it during a short break when you want to slow down and reset your routine." : "",
+    brief.category === "beauty" ? "Keep it ready where you normally do your daily care routine." : "",
+    brief.category === "home" ? "Keep it within reach for the repeated task it is meant to simplify." : "",
+    signals.includes("portable") ? "Fold it or store it after use so it does not take over your desk, drawer, or travel bag." : "",
+    signals.includes("vibration") ? "Start with a short session so the vibration sensation feels comfortable for your preference." : "",
+    signals.includes("rechargeable") ? "Charge or connect it before use so the routine is ready when you need it." : "",
+    "Choose the variant that matches how and where you plan to use it."
+  ].filter(Boolean);
+  return uniqueStrings(bullets).slice(0, 4);
+}
+
 function salesBlueprint(brief: ProductResearchBrief): {
   heroLead: string;
   heroBullets: string[];
@@ -269,35 +321,19 @@ function salesBlueprint(brief: ProductResearchBrief): {
     .filter(([key]) => key !== "Product type")
     .map(([key, value]) => `${key}: ${value}`)
     .slice(0, 3);
-  const packageProof = brief.packageItems.length === 1
-    ? `${brief.packageItems[0]} included`
-    : `${brief.packageItems.length} included items listed`;
+  const value = valueBullets(brief);
+  const useCases = useCaseBullets(brief);
   return {
-    heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a clear use case, easy-to-check details, and a smoother way to decide if it fits your needs.`,
-    heroBullets: [
-      `Made for ${moment} without a complicated learning curve`,
-      `Clear photos make the shape, finish, and included details easier to inspect`,
-      `Simple benefits show how the ${noun} can fit into regular use`,
-      `${referenceStyle} FAQ and specs answer common pre-purchase questions in plain language`
-    ],
-    demoBullets: [
-      `Check the first image for the overall product shape and main use case`,
-      `Review close-up images for texture, controls, fit, or visible construction details`,
-      `Compare available options before choosing the version that matches your routine`,
-      `Use the package and specification details to confirm what is included`
-    ],
-    proofBullets: uniqueStrings([
-      "Multiple product photos help you inspect the item before checkout",
-      ...visibleSpecs,
-      packageProof,
-      "Benefits stay focused on visible product details"
-    ]).slice(0, 5),
+    heroLead: `${brief.brandName} brings ${brief.productType} into ${moment} with a more useful, repeatable way to handle the moment shoppers are already trying to improve.`,
+    heroBullets: value.slice(0, 4),
+    demoBullets: useCases,
+    proofBullets: uniqueStrings([...value.slice(0, 3), ...visibleSpecs, `${referenceStyle} The layout keeps the main benefits, use case, and buying questions easy to scan.`]).slice(0, 5),
     comparisonRows: {
-      "Basic option": "Lists features but leaves shoppers guessing how the item fits daily use.",
-      [brief.selectedTitle]: `Connects visible details to clear benefits, setup expectations, and buyer questions.`,
+      "Basic option": "Looks similar at first glance, but may not explain when, why, or how shoppers should use it.",
+      [brief.selectedTitle]: `Connects the product type to practical use cases, comfort points, and buying questions.`,
       "Best for": brief.targetBuyer
     },
-    finalCta: `Choose the option that matches your needs, review the images and included items, then add ${noun} to your routine with a clear idea of what to expect.`
+    finalCta: `Choose the option that matches your routine and bring ${noun} into the moments where a simpler, more comfortable setup can make the biggest difference.`
   };
 }
 
@@ -318,7 +354,7 @@ function buildResearchBrief(input: GenerateInput): ProductResearchBrief {
     : profile.useSteps;
   const packageItems = input.source.packageContents?.length
     ? input.source.packageContents.flatMap((item) => safePhrase(item, productType) ?? []).slice(0, 6)
-    : [`${productType} product`];
+    : ["User guide or setup details when provided by the merchant"];
   return {
     ...profile,
     productType,
@@ -405,15 +441,15 @@ export class MockAiProvider implements AiProvider {
       heroBenefits: copy.heroBullets.slice(0, 4),
       sections: [
         { key: "product-hero", type: "hero", heading: `${brief.brandName} Makes ${titleCase(shopperMoment(brief.category))} Easier`, blocks: [imageBlock(0, "hero"), copy.heroLead, { type: "list", items: copy.heroBullets }], mediaAssetIds: brief.media[0] ? ["media-1"] : [], factIds: brief.factIds },
-        { key: "trust-strip", type: "package", heading: "What You Can Check Before Ordering", blocks: [{ type: "list", items: copy.proofBullets }], factIds: brief.factIds },
-        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, `${brief.productType} is framed around a simple outcome: less guessing, clearer product details, and a smoother decision for shoppers who want the right fit for their routine.`, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
-        { key: "product-demo", type: "demo", heading: "See The Details Before You Decide", blocks: [brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
+        { key: "trust-strip", type: "package", heading: "Built For The Moments You Actually Use It", blocks: [{ type: "list", items: copy.proofBullets }], factIds: brief.factIds },
+        { key: "problem-outcome", type: "problem", heading: brief.problemHeading, blocks: [brief.problemBody, `${brief.productType} is positioned around a simple outcome: make the routine feel easier to start, easier to repeat, and more comfortable to keep using.`, imageBlock(1, "detail")], mediaAssetIds: brief.media[1] ? ["media-2"] : [], factIds: brief.factIds },
+        { key: "product-demo", type: "demo", heading: "How It Helps In Real Use", blocks: [brief.outcomeBody, imageBlock(2, "demo"), { type: "list", items: copy.demoBullets }], mediaAssetIds: brief.media[2] ? ["media-3"] : [], factIds: brief.factIds },
         { key: "three-core-benefits", type: "benefits", heading: `Why ${brief.productType} Feels Easy To Choose`, blocks: [{ type: "list", items: brief.benefits.slice(0, 4).map((item) => `${item} - explained in clear, shopper-friendly language.`) }, imageBlock(3, "benefit")], mediaAssetIds: brief.media[3] ? ["media-4"] : [], factIds: brief.factIds },
         { key: "how-it-works", type: "how-it-works", heading: hasReferenceSection(brief, "how-it-works") ? "A Simple Way To Use It" : "How It Fits Into Daily Use", blocks: [`Start with the visible product details, then use the simple steps below to understand how ${brief.productType.toLowerCase()} fits into ${shopperMoment(brief.category)}.`, { type: "list", items: brief.useSteps.slice(0, 3) }, imageBlock(4, "usage")], mediaAssetIds: brief.media[4] ? ["media-5"] : [], factIds: brief.factIds },
         { key: "why-choose", type: "comparison", heading: hasReferenceSection(brief, "comparison") ? `${brief.selectedTitle} vs. A Basic Option` : `Why Choose ${brief.selectedTitle}?`, blocks: [{ type: "table", rows: copy.comparisonRows }, { type: "list", items: brief.whyChoose.slice(0, 4) }], factIds: brief.factIds },
-        { key: "customer-proof", type: "trust", heading: "Details You Can Review With Confidence", blocks: [`Shoppers can make a clearer decision by checking the product images, included items, specifications, and realistic use-case details before ordering.`, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
+        { key: "customer-proof", type: "trust", heading: "Why It Feels Worth Trying", blocks: [`A strong product page should help shoppers imagine the exact moment they would use ${brief.productType.toLowerCase()}: where it fits, what problem it eases, and why it is simple enough to keep using.`, { type: "list", items: copy.proofBullets.slice(0, 4) }], factIds: brief.factIds },
         { key: "specifications", type: "specifications", heading: "Product details", blocks: [{ type: "table", rows: brief.specs }, imageBlock(5, "specification")], mediaAssetIds: brief.media[5] ? ["media-6"] : [], factIds: brief.factIds },
-        { key: "package-contents", type: "package", heading: "Package Includes", blocks: [`Check the selected option and included items so you know exactly what should arrive with your order.`, { type: "list", items: brief.packageItems }], factIds: brief.factIds },
+        { key: "package-contents", type: "package", heading: "Package Includes", blocks: [`Your selected option includes the core items needed to start using ${brief.productType.toLowerCase()} as part of the intended routine.`, { type: "list", items: brief.packageItems }], factIds: brief.factIds },
         { key: "guarantee-faq", type: "faq", heading: "Questions To Review Before Checkout", blocks: [`Review the selected option, package details, and product images to make sure ${brief.productType.toLowerCase()} matches your intended use.`], factIds: brief.factIds },
         { key: "final-cta-reviews", type: "cta", heading: `Ready To Make ${shopperMoment(brief.category)} Simpler?`, blocks: [imageBlock(6, "final"), copy.finalCta], mediaAssetIds: brief.media[6] ? ["media-7"] : [], factIds: brief.factIds }
       ],

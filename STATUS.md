@@ -30,6 +30,7 @@
 - [x] Phase 3 description base copy now uses richer sales-page blocks for hero, proof points, demo guidance, comparison, FAQ, and final CTA.
 - [x] Phase 3+4 reference-page analyzer accepts up to 3 inspiration URLs, extracts safe layout/style signals, and feeds them into AI planning without copying reference text/media/reviews.
 - [x] Reference section-map analyzer now detects per-section intent/media density and can influence deterministic layout while preserving no-copy safeguards.
+- [x] Description fallback no longer uses hollow image-inspection bullets; base copy now emphasizes use cases, comfort/value outcomes, and compliant trust sections without fake reviews.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
 - [ ] Rich supplier extraction for all dynamic variants and fallback suppliers when public pages omit data.
@@ -68,6 +69,7 @@
 - Passed after Phase 3 sales-page base copy upgrade: `pnpm test` (3 files, 14 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after Phase 3+4 reference analyzer wiring: `pnpm test` (3 files, 15 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after reference section-map hardening: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Passed after sales-copy cleanup: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
