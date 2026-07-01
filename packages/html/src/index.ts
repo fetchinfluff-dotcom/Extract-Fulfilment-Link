@@ -2,6 +2,7 @@ import type { GeneratedListing } from "@listingforge/schemas";
 
 const blue = "#236fa1";
 const internalNoisePattern = /\b(?:detected|supplier|item cost|shipping cost)\b|\b(?:price|shipping)\s*:|\$\d|\[object Object\]|verified reviews only after import/i;
+const fakeProofPattern = /\bverified (?:buyer|purchase|customer)\b|\brated\s+\d+(?:\.\d+)?\b|\b\d+(?:\.\d+)?\s*(?:out of 5|stars?)\b|\b\d[\d,]*\s+(?:happy\s+)?customers\b|\bcustomers?\s+(?:love|say|rave|agree)\b|\btestimonial\b|\u2605{3,}/i;
 
 export type DescriptionQualityScore = {
   score: number;
@@ -13,6 +14,7 @@ export type DescriptionQualityScore = {
     enoughSections: boolean;
     hasFaq: boolean;
     enoughLength: boolean;
+    noFakeProof: boolean;
   };
   notes: string[];
 };
@@ -30,7 +32,7 @@ function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
   const text = String(value).replace(/\s+/g, " ").trim();
   if (!text || text === "[object Object]" || /^\d+(\.\d+)?$/.test(text)) return null;
-  if (internalNoisePattern.test(text) || /suggested range|aliexpress:/i.test(text)) return null;
+  if (internalNoisePattern.test(text) || fakeProofPattern.test(text) || /suggested range|aliexpress:/i.test(text)) return null;
   return text;
 }
 
@@ -84,7 +86,8 @@ export function scoreDescriptionHtmlQuality(html: string): DescriptionQualitySco
     enoughBullets: bulletCount >= 8,
     enoughSections: headingCount >= 9,
     hasFaq: /Frequently Asked Questions/i.test(html),
-    enoughLength: html.length >= 5000
+    enoughLength: html.length >= 5000,
+    noFakeProof: !fakeProofPattern.test(html)
   };
   const notes = Object.entries(checks).flatMap(([key, passed]) => passed ? [] : [key]);
   const passed = Object.values(checks).filter(Boolean).length;

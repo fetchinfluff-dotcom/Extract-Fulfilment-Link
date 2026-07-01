@@ -196,6 +196,29 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Copied review heading");
   });
 
+  it("scrubs fake proof from rendered HTML even if a bad patch reaches the listing", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: 0 });
+    const listing = await new MockAiProvider().generateListing({ source, pricing });
+    const html = renderListingHtml({
+      ...listing,
+      sections: [{
+        ...listing.sections[0]!,
+        blocks: [
+          "Rated 4.9 stars by 1,284 happy customers.",
+          { type: "list", items: ["Verified buyer testimonial", "Use it in short desk breaks"] }
+        ]
+      }]
+    });
+
+    expectNoPatterns(html, fakeReviewPatterns);
+    expect(html).toContain("Use it in short desk breaks");
+    expect(scoreDescriptionHtmlQuality(html).checks.noFakeProof).toBe(true);
+  });
+
   it("extracts public JSON-LD product pages without credentials", async () => {
     const oldFetch = globalThis.fetch;
     globalThis.fetch = async () =>

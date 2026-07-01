@@ -810,26 +810,26 @@ function applyFaqPatch(listing: GeneratedListing, value: unknown): void {
 function cleanBlock(block: unknown): unknown {
   if (typeof block === "string") {
     const text = block.replace(/\s+/g, " ").trim();
-    return hasInternalNoise(text) || hasHollowCopy(text) || text.length < 24 ? null : text.slice(0, 900);
+    return hasInternalNoise(text) || hasHollowCopy(text) || hasFakeProof(text) || text.length < 24 ? null : text.slice(0, 900);
   }
   if (!isRecord(block)) return null;
   if (block.type === "list" && Array.isArray(block.items)) {
     const items = block.items
       .map((item) => String(item).replace(/\s+/g, " ").trim())
-      .filter((item) => item.length >= 16 && !hasInternalNoise(item) && !hasHollowCopy(item))
+      .filter((item) => item.length >= 16 && !hasInternalNoise(item) && !hasHollowCopy(item) && !hasFakeProof(item))
       .slice(0, 6);
     const parsed = ListingBlockSchema.safeParse({ type: "list", items });
     return parsed.success ? parsed.data : null;
   }
   if (block.type === "table" && isRecord(block.rows)) {
     const rows = Object.fromEntries(Object.entries(block.rows).flatMap(([key, value]) => {
-      if (!["string", "number", "boolean"].includes(typeof value) || hasInternalNoise(key) || hasHollowCopy(key)) return [];
+      if (!["string", "number", "boolean"].includes(typeof value) || hasInternalNoise(key) || hasHollowCopy(key) || hasFakeProof(key) || hasFakeProof(String(value))) return [];
       return [[key, value]];
     }));
     const parsed = ListingBlockSchema.safeParse({ type: "table", rows });
     return parsed.success ? parsed.data : null;
   }
-  return typeof block.text === "string" && !hasInternalNoise(block.text) && !hasHollowCopy(block.text) ? block.text.slice(0, 900) : null;
+  return typeof block.text === "string" && !hasInternalNoise(block.text) && !hasHollowCopy(block.text) && !hasFakeProof(block.text) ? block.text.slice(0, 900) : null;
 }
 
 function isListingBlock(block: unknown): block is ListingBlock {
@@ -848,6 +848,10 @@ function hasHollowCopy(value: string): boolean {
   return /\b(?:visible product details|product images to inspect|easy to inspect|clear product details|useful visuals|explained in clear|shopper-friendly language|matches your intended use|practical product designed for everyday use in its category|buying questions easy to scan)\b/i.test(value);
 }
 
+function hasFakeProof(value: string): boolean {
+  return /\bverified (?:buyer|purchase|customer)\b|\brated\s+\d+(?:\.\d+)?\b|\b\d+(?:\.\d+)?\s*(?:out of 5|stars?)\b|\b\d[\d,]*\s+(?:happy\s+)?customers\b|\bcustomers?\s+(?:love|say|rave|agree)\b|\btestimonial\b|\u2605{3,}/i.test(value);
+}
+
 function listingQuality(listing: GeneratedListing): { score: number; weakSectionKeys: string[] } {
   const imageCount = listing.sections.flatMap((section) => section.blocks).filter((block) => isRecord(block) && block.type === "image").length;
   const bulletCount = listing.sections.flatMap((section) => section.blocks).reduce<number>((total, block) => (
@@ -864,7 +868,7 @@ function listingQuality(listing: GeneratedListing): { score: number; weakSection
         return [];
       });
       const normalized = copy.map((item) => item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()).filter(Boolean);
-      return section.blocks.filter(Boolean).length < 2 || copy.some(hasHollowCopy) || new Set(normalized).size < normalized.length;
+      return section.blocks.filter(Boolean).length < 2 || copy.some((item) => hasHollowCopy(item) || hasFakeProof(item)) || new Set(normalized).size < normalized.length;
     })
     .map((section) => section.key)
     .slice(0, 4);
@@ -875,7 +879,8 @@ function listingQuality(listing: GeneratedListing): { score: number; weakSection
     (listing.faq?.length ?? 0) >= 3,
     weakSectionKeys.length === 0,
     !hasInternalNoise(allCopy),
-    !hasHollowCopy(allCopy)
+    !hasHollowCopy(allCopy),
+    !hasFakeProof(allCopy)
   ];
   return { score: Math.round((checks.filter(Boolean).length / checks.length) * 100), weakSectionKeys };
 }
