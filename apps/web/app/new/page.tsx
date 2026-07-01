@@ -75,8 +75,9 @@ export default function NewProjectPage() {
           {["Validate URL", "Extract source data", "Calculate price", "Generate draft", "Prepare preview"].map((stage) => <span className="lf-badge lf-badge-neutral" key={stage}>{stage}</span>)}
         </div>
         <div className="grid two stack-top">
-          <Card>
-            <h1>Fast import</h1>
+          <Card className="terminal-panel">
+            <Badge tone="good">Import console</Badge>
+            <h1>Compile a product page from source data.</h1>
             <p className="muted">ListingForge keeps source facts, media links, pricing, and compliance notes attached to the project.</p>
             <Field label="Supplier URL">
               <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
@@ -92,12 +93,26 @@ export default function NewProjectPage() {
               </div>
             ) : null}
           </Card>
-          <Card>
-            <h2>What happens next</h2>
-            <p><Badge tone="good">Source</Badge> Product data and images are extracted with provenance.</p>
-            <p><Badge tone="neutral">Pricing</Badge> The landed cost feeds a suggested selling range.</p>
-            <p><Badge tone="warn">Review</Badge> Claims, media rights, and unsupported social proof stay visible.</p>
-          </Card>
+          <div className="code-window">
+            <div className="code-window-header">
+              <div className="window-dots"><span /><span /><span /></div>
+              <span className="code-label">generation_trace.log</span>
+            </div>
+            <div className="pipeline">
+              <div className="pipeline-step">
+                <small><span>source.extract</span><span className="signal-dot">armed</span></small>
+                <p><Badge tone="good">Source</Badge> Product data and images are extracted with provenance.</p>
+              </div>
+              <div className="pipeline-step">
+                <small><span>pricing.calculate</span><span>cost + shipping</span></small>
+                <p><Badge tone="neutral">Pricing</Badge> Landed cost feeds the suggested selling range.</p>
+              </div>
+              <div className="pipeline-step hot">
+                <small><span>content.generate</span><span>quality gate</span></small>
+                <p><Badge tone="warn">Review</Badge> Claims, media rights, and unsupported social proof stay visible.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

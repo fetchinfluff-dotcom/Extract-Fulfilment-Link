@@ -32,6 +32,7 @@
 - [x] Reference section-map analyzer now detects per-section intent/media density and can influence deterministic layout while preserving no-copy safeguards.
 - [x] Description fallback no longer uses hollow image-inspection bullets; base copy now emphasizes use cases, comfort/value outcomes, and compliant trust sections without fake reviews.
 - [x] Customer-proof copy now renders real-world scenario blocks instead of fake reviews, ratings, testimonials, or hollow inspection guidance.
+- [x] Application UI refreshed into a dark technical ListingForge console inspired by the sample project, covering landing, dashboard, import flow, and project editor without adding fake metrics or unsupported claims.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
 - [x] Project create, HTML edit, and export actions write `audit_logs` events when Supabase persistence is enabled.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
@@ -75,9 +76,11 @@
 - Passed after sales-copy cleanup: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after real-world scenario blocks: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Passed after technical UI refresh: `pnpm test` (4 files, 20 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; browser checks for `/`, `/new`, `/dashboard`, and generated project editor at desktop/mobile found no real horizontal scrolling.
 - Supabase migration applied: `audit_logs`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify after auth/workspace wiring: `GET /login` -> 200, `GET /new` -> 200, unauthenticated `POST /api/projects` -> 401 `UNAUTHENTICATED`.
+- Production verify after technical UI refresh: deployment `dpl_How3B3RhhiTJodLsEFHWSidsqoaU` READY; `GET /`, `/new`, `/dashboard` -> 200 and landing contains the new programmable listing workspace content.
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008809640384.html` -> 201, project `791ab5eb-0217-4bbc-86a9-b6eb1f57a269`

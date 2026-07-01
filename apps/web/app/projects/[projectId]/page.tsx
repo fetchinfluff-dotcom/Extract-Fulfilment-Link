@@ -70,14 +70,14 @@ export default function ProjectPage() {
     setSaved(new Date().toLocaleTimeString());
   }
 
-  if (error) return <main className="shell"><Card><h1>Project unavailable</h1><p className="muted">{error}</p></Card></main>;
-  if (!project) return <main className="shell"><Card>Loading project...</Card></main>;
+  if (error) return <main className="shell"><Card><h1>Project unavailable</h1><p className="muted">{error}</p><Link className="lf-button secondary" href="/dashboard">Back to dashboard</Link></Card></main>;
+  if (!project) return <main className="shell"><div className="code-window"><div className="code-window-header"><div className="window-dots"><span /><span /><span /></div><span className="code-label">loading_project.json</span></div><div className="pipeline"><div className="pipeline-step"><small><span>fetch.project</span><span className="signal-dot">loading</span></small><p className="muted">Loading project workspace...</p></div></div></div></main>;
 
   return (
     <main className="app-frame">
       <aside className="side-nav">
         <div className="brand">ListingForge</div>
-        <p className="muted">Product editor</p>
+        <p className="muted">Product editor runtime</p>
         <nav className="grid stack-top">
           <Link href="/dashboard">Dashboard</Link>
           <Link href="/new">New product</Link>
@@ -89,7 +89,7 @@ export default function ProjectPage() {
         <nav className="nav">
           <div>
             <div className="brand">{project.listing.selectedTitle}</div>
-            <p className="muted">{project.source.canonicalUrl}</p>
+            <p className="muted"><span className="signal-dot">saved</span> {project.source.canonicalUrl}</p>
           </div>
           <div className="timeline">
             <a className="lf-button secondary" href={`/api/projects/${project.id}/export/html`}>HTML</a>
@@ -103,7 +103,7 @@ export default function ProjectPage() {
           <Card className="stat-card"><span><span className="muted">Suggested</span><strong>${project.pricing.recommendedPrice}</strong></span><Badge tone="neutral">Price</Badge></Card>
           <Card className="stat-card"><span><span className="muted">Review</span><strong>{project.listing.compliance.humanReviewRequired ? "Yes" : "No"}</strong></span><Badge tone={project.listing.compliance.humanReviewRequired ? "warn" : "good"}>Compliance</Badge></Card>
         </div>
-        <section className="three-pane">
+        <section className="three-pane editor-shell">
           <Card>
             <h2>Source facts</h2>
             {project.source.facts.map((fact) => (
@@ -113,23 +113,26 @@ export default function ProjectPage() {
             <div className="media-actions">
               {project.source.media.map((media, index) => (
                 <a className="lf-button secondary" href={media.url} target="_blank" rel="noreferrer" key={media.url}>
-                  Open image {index + 1} - {media.licenseStatus}
+                  image_{index + 1}.asset - {media.licenseStatus}
                 </a>
               ))}
             </div>
             {project.source.warnings.map((warning) => <p className="lf-badge lf-badge-warn" key={warning}>{warning}</p>)}
           </Card>
           <Card>
-            <h2>Editor</h2>
+            <h2>HTML editor</h2>
+            <p className="muted">Sanitized storefront HTML. Save writes the active generated version.</p>
             <textarea aria-label="Sanitized HTML editor" value={html} onChange={(event) => setHtml(event.target.value)} />
             <p><button className="lf-button" onClick={saveHtml}>Save sanitized HTML</button> {saved ? <span className="muted">Saved {saved}</span> : null}</p>
             <div className="preview" dangerouslySetInnerHTML={{ __html: project.html }} />
           </Card>
           <Card>
             <h2>Pricing</h2>
-            <p>Landed cost: ${project.pricing.landedCost}</p>
-            <p>Suggested: ${project.pricing.lowPrice} - ${project.pricing.recommendedPrice} - ${project.pricing.highPrice}</p>
-            <p>Break-even ROAS: {project.pricing.breakEvenRoas}</p>
+            <div className="pipeline">
+              <div className="pipeline-step"><small><span>landed_cost</span><span>${project.pricing.landedCost}</span></small><p className="muted">Item cost plus detected shipping.</p></div>
+              <div className="pipeline-step hot"><small><span>suggested_range</span><span>${project.pricing.lowPrice} - ${project.pricing.highPrice}</span></small><p>Recommended: ${project.pricing.recommendedPrice}</p></div>
+              <div className="pipeline-step"><small><span>break_even_roas</span><span>{project.pricing.breakEvenRoas}</span></small><p className="muted">Estimate only, not a profit guarantee.</p></div>
+            </div>
             <h2>SEO</h2>
             <p>{project.listing.seo.metaTitle}</p>
             <p className="muted">{project.listing.seo.metaDescription}</p>
