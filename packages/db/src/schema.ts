@@ -70,3 +70,16 @@ export const usageLedger = pgTable("usage_ledger", {
   metadataJson: jsonb("metadata_json").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id),
+  actorUserId: uuid("actor_user_id"),
+  action: text("action").notNull(),
+  resourceType: text("resource_type").notNull(),
+  resourceId: uuid("resource_id"),
+  metadataJson: jsonb("metadata_json").notNull(),
+  ipHash: text("ip_hash"),
+  userAgentHash: text("user_agent_hash"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});

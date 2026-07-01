@@ -17,7 +17,7 @@
 - [x] Phase 3: pricing engine and media provenance display.
 - [x] Phase 4: AI provider abstraction, mock provider, structured validation, HTML renderer/sanitizer.
 - [x] Phase 5: three-pane editor, server-side sanitized save, HTML/JSON/CSV export.
-- [ ] Supabase Auth/session wiring for real users.
+- [x] Supabase Auth/session wiring for real users: login/signup/reset server actions set httpOnly Supabase session cookies, and project APIs scope reads/writes by authenticated workspace with local MVP fallback.
 - [x] Database-backed project lifecycle for production imports and generated versions.
 - [x] Stitch ListingForge SaaS interface frame applied to landing, dashboard, and import flow.
 - [x] Project editor/detail page uses the same dashboard shell and sidebar frame.
@@ -33,6 +33,7 @@
 - [x] Description fallback no longer uses hollow image-inspection bullets; base copy now emphasizes use cases, comfort/value outcomes, and compliant trust sections without fake reviews.
 - [x] Customer-proof copy now renders real-world scenario blocks instead of fake reviews, ratings, testimonials, or hollow inspection guidance.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
+- [x] Project create, HTML edit, and export actions write `audit_logs` events when Supabase persistence is enabled.
 - [x] AliExpress title, media, selected price, and shipping extraction from live product data.
 - [ ] Rich supplier extraction for all dynamic variants and fallback suppliers when public pages omit data.
 - [ ] Full billing/Stripe implementation.
@@ -43,6 +44,7 @@
 - Public supplier extraction can work without credentials when the page exposes HTML/JSON-LD or AliExpress mtop data.
 - Supplier API credentials are still useful for richer variants, shipping, rate limits, and fewer blocked pages.
 - The provided JWT decodes as `anon`, not `service_role`; production persistence uses the server-only Supabase secret API key. Rotate pasted keys before real customer traffic.
+- Production now requires a Supabase Auth session for project API calls; local development still uses the MVP workspace fallback.
 - OpenAI-compatible generation is split into small schema patches. Latest Tramai acceptance run completed in about 23s; section patches applied, title/FAQ patches still fell back.
 - `pnpm worker:dev` requires Redis on localhost:6379; it starts but cannot process jobs locally until Redis is running.
 
@@ -72,6 +74,8 @@
 - Passed after reference section-map hardening: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after sales-copy cleanup: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after real-world scenario blocks: `pnpm test` (3 files, 18 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
+- Supabase migration applied: `audit_logs`
 - Production verify: `GET https://extract-fulfilment-link.vercel.app/new` -> 200
 - Production verify: `POST /api/projects` with mock fixture -> 400 `Fixture URLs are disabled in production.`
 - Production verify: `POST /api/projects` with `https://www.aliexpress.com/item/1005008224752493.html` -> 201
