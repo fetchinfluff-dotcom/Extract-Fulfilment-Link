@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AliExpressAdapter, MockSourceAdapter } from "@listingforge/adapters";
 import { MockAiProvider, OpenAiCompatibleProvider } from "@listingforge/ai";
-import { renderListingHtml, sanitizeHtml } from "@listingforge/html";
+import { renderListingHtml, sanitizeHtml, scoreDescriptionHtmlQuality } from "@listingforge/html";
 import { calculatePricing } from "@listingforge/pricing";
 import { GeneratedListingSchema, SourceProductSchema } from "@listingforge/schemas";
 
@@ -80,6 +80,28 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("Detected");
     expect(html).not.toContain("supplier");
     expect(html).not.toContain("item cost");
+  });
+
+  it("scores sales-page descriptions with images, sections, bullets, and FAQ", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const richSource = {
+      ...source,
+      media: Array.from({ length: 7 }, (_, index) => ({
+        ...source.media[0]!,
+        url: `${source.media[0]!.url}?slot=${index}`
+      }))
+    };
+    const pricing = calculatePricing({ itemCost: richSource.variants[0]?.itemCost ?? 0, shippingCost: 0 });
+    const listing = await new MockAiProvider().generateListing({ source: richSource, pricing });
+    const html = renderListingHtml(listing);
+    const quality = scoreDescriptionHtmlQuality(html);
+    expect(quality.score).toBeGreaterThanOrEqual(85);
+    expect(quality.checks.enoughImages).toBe(true);
+    expect(quality.checks.hasFaq).toBe(true);
+    expect(quality.checks.noInternalNoise).toBe(true);
   });
 
   it("extracts public JSON-LD product pages without credentials", async () => {

@@ -3,6 +3,20 @@ import type { GeneratedListing } from "@listingforge/schemas";
 const blue = "#236fa1";
 const internalNoisePattern = /\b(?:detected|supplier|item cost|shipping cost)\b|\[object Object\]|verified reviews only after import/i;
 
+export type DescriptionQualityScore = {
+  score: number;
+  checks: {
+    noInternalNoise: boolean;
+    enoughImages: boolean;
+    hasAltText: boolean;
+    enoughBullets: boolean;
+    enoughSections: boolean;
+    hasFaq: boolean;
+    enoughLength: boolean;
+  };
+  notes: string[];
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -56,6 +70,25 @@ function renderBlock(block: unknown): string {
 
 function assertDescriptionQuality(html: string): string {
   return internalNoisePattern.test(html) ? html.replace(internalNoisePattern, "").replace(/\s{2,}/g, " ") : html;
+}
+
+export function scoreDescriptionHtmlQuality(html: string): DescriptionQualityScore {
+  const imageCount = (html.match(/<img\b/gi) ?? []).length;
+  const altCount = (html.match(/\salt="/gi) ?? []).length;
+  const bulletCount = (html.match(/&#9989;/g) ?? []).length;
+  const headingCount = (html.match(/font-size: 18px/g) ?? []).length;
+  const checks = {
+    noInternalNoise: !internalNoisePattern.test(html),
+    enoughImages: imageCount >= 4,
+    hasAltText: imageCount > 0 && altCount >= imageCount,
+    enoughBullets: bulletCount >= 8,
+    enoughSections: headingCount >= 9,
+    hasFaq: /Frequently Asked Questions/i.test(html),
+    enoughLength: html.length >= 5000
+  };
+  const notes = Object.entries(checks).flatMap(([key, passed]) => passed ? [] : [key]);
+  const passed = Object.values(checks).filter(Boolean).length;
+  return { score: Math.round((passed / Object.keys(checks).length) * 100), checks, notes };
 }
 
 export function sanitizeHtml(html: string): string {
