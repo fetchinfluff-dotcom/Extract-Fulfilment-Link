@@ -45,6 +45,7 @@ export async function createDemoProject(body: unknown): Promise<DemoProject> {
     title: null,
     metaDescription: null,
     headings: [],
+    sections: [],
     imageCount: 0,
     videoCount: 0,
     sectionPatterns: [],

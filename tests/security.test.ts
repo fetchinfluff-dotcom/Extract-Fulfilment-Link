@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPrivateAddress, validateSourceUrl } from "@listingforge/security";
+import { isPrivateAddress, validatePublicUrl, validateSourceUrl } from "@listingforge/security";
 
 describe("source URL security", () => {
   it("rejects private IP literals", async () => {
@@ -14,5 +14,11 @@ describe("source URL security", () => {
   it("detects private ranges", () => {
     expect(isPrivateAddress("10.0.0.1")).toBe(true);
     expect(isPrivateAddress("8.8.8.8")).toBe(false);
+  });
+
+  it("rejects unsafe public reference URLs", async () => {
+    await expect(validatePublicUrl("http://example.com/product", { skipDns: true })).rejects.toThrow("HTTPS");
+    await expect(validatePublicUrl("https://127.0.0.1/product", { skipDns: true })).rejects.toThrow("Private");
+    await expect(validatePublicUrl("https://example.com:8443/product", { skipDns: true })).rejects.toThrow("ports");
   });
 });

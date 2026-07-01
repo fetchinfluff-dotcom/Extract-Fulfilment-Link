@@ -25,6 +25,12 @@ export type ReferencePageAnalysis = {
   title: string | null;
   metaDescription: string | null;
   headings: string[];
+  sections: Array<{
+    key: string;
+    heading: string;
+    intent: string;
+    mediaCount: number;
+  }>;
   imageCount: number;
   videoCount: number;
   sectionPatterns: string[];
@@ -148,11 +154,19 @@ async function fetchReferenceHtml(startUrl: URL, env: PublicAdapterEnv & Pick<Ap
 
 function analyzeReferenceHtml(url: URL, html: string): ReferencePageAnalysis {
   const clean = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ");
-  const headings = unique([...clean.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
-    .map((match) => decode(match[1]) ?? "")
+  const headingMatches = [...clean.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)];
+  const headings = unique(headingMatches.map((match) => decode(match[1]) ?? "")
     .filter((heading) => heading.length >= 6 && heading.length <= 90)
     .filter((heading) => !/cart|checkout|login|menu|shipping|refund|privacy|terms/i.test(heading)))
     .slice(0, 12);
+  const sections = headingMatches.flatMap((match, index) => {
+    const heading = decode(match[1]) ?? "";
+    if (!headings.includes(heading)) return [];
+    const start = (match.index ?? 0) + match[0].length;
+    const end = index + 1 < headingMatches.length ? headingMatches[index + 1]!.index ?? clean.length : clean.length;
+    const chunk = clean.slice(start, end);
+    return [{ key: classifyReferenceSection(heading, chunk), heading, intent: sectionIntent(heading, chunk), mediaCount: (chunk.match(/<img\b|<video\b|<source\b[^>]+video\//gi) ?? []).length }];
+  }).slice(0, 10);
   const text = decode(clean)?.toLowerCase() ?? "";
   const patterns = [
     /faq|question/.test(text) ? "FAQ near the end" : "",
@@ -173,12 +187,36 @@ function analyzeReferenceHtml(url: URL, html: string): ReferencePageAnalysis {
     title: extractTag(clean, "title"),
     metaDescription: extractMeta(clean, "description"),
     headings,
+    sections,
     imageCount: (clean.match(/<img\b/gi) ?? []).length,
     videoCount: (clean.match(/<video\b|<source\b[^>]+video\//gi) ?? []).length,
     sectionPatterns: unique(patterns),
     styleSignals: unique(styleSignals),
     warnings: ["Reference page analyzed for layout/style only. Text, reviews, ratings, claims, and media are not copied."]
   };
+}
+
+function classifyReferenceSection(heading: string, html: string): string {
+  const textValue = `${heading} ${decode(html) ?? ""}`.toLowerCase();
+  if (/faq|question/.test(textValue)) return "faq";
+  if (/compare|comparison|versus|vs\./.test(textValue)) return "comparison";
+  if (/how it works|how to use|instruction|step/.test(textValue)) return "how-it-works";
+  if (/review|customer|testimonial/.test(textValue)) return "customer-proof";
+  if (/spec|detail|material|size|dimension/.test(textValue)) return "specifications";
+  if (/benefit|why choose|why .* works|comfort|easy|simple/.test(textValue)) return "benefits";
+  if (/included|package|box/.test(textValue)) return "package";
+  return "story";
+}
+
+function sectionIntent(heading: string, html: string): string {
+  const textValue = `${heading} ${decode(html) ?? ""}`.toLowerCase();
+  if (/faq|question/.test(textValue)) return "Answer buyer objections near the end.";
+  if (/compare|comparison|versus|vs\./.test(textValue)) return "Show why this option is easier to choose than a basic alternative.";
+  if (/how it works|how to use|instruction|step/.test(textValue)) return "Explain the use flow in short steps.";
+  if (/review|customer|testimonial/.test(textValue)) return "Reserve proof area for merchant-provided reviews only.";
+  if (/spec|detail|material|size|dimension/.test(textValue)) return "Ground the section in factual product details.";
+  if (/benefit|why choose|comfort|easy|simple/.test(textValue)) return "Turn visible product details into practical benefits.";
+  return "Use a concise shopper-facing section with a clear outcome.";
 }
 
 async function fetchPublicHtml(startUrl: URL, env: PublicAdapterEnv): Promise<string> {

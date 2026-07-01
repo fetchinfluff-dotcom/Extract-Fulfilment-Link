@@ -28,7 +28,18 @@ new Worker<ExtractJob>(
     if (!firstVariant) throw new Error("No variants were extracted.");
     await job.updateProgress({ stage: "generating", message: "Generating structured listing" });
     const pricing = calculatePricing({ itemCost: firstVariant.itemCost, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
-    const referencePages = await analyzeReferencePages(job.data.referenceUrls ?? [], env).catch(() => []);
+    const referencePages = await analyzeReferencePages(job.data.referenceUrls ?? [], env).catch((error: unknown) => [{
+      url: "reference-analysis",
+      title: null,
+      metaDescription: null,
+      headings: [],
+      sections: [],
+      imageCount: 0,
+      videoCount: 0,
+      sectionPatterns: [],
+      styleSignals: [],
+      warnings: [error instanceof Error ? error.message : "Reference analysis failed."]
+    }]);
     const listing = await createAiProvider(env).generateListing({ source, pricing, referencePages });
     return { source, pricing, listing, html: renderListingHtml(listing) };
   },

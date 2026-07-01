@@ -220,6 +220,8 @@ describe("fixture pipeline", () => {
         NODE_ENV: "test"
       });
       expect(pages[0]?.sectionPatterns).toContain("FAQ near the end");
+      expect(pages[0]?.sections.map((section) => section.key)).toContain("faq");
+      expect(pages[0]?.sections.map((section) => section.key)).toContain("benefits");
       expect(pages[0]?.imageCount).toBe(2);
 
       const source = await new MockSourceAdapter().extract({
@@ -235,12 +237,62 @@ describe("fixture pipeline", () => {
       };
       await new OpenAiCompatibleProvider({ AI_BASE_URL: "https://example.com/v1", AI_API_KEY: "test", AI_MODEL_QUALITY: "model" }).generateListing({ source, pricing, referencePages: pages });
       expect(prompt).toContain("referenceBlueprint");
+      expect(prompt).toContain("sectionMap");
       expect(prompt).not.toContain("Premium Competitor Name");
       expect(prompt).not.toContain("Do not copy this line");
       expect(prompt).not.toContain("See It In Action");
     } finally {
       globalThis.fetch = oldFetch;
     }
+  });
+
+  it("rejects oversized reference pages", async () => {
+    const oldFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(`<html>${"x".repeat(128)}</html>`, { status: 200, headers: { "content-type": "text/html" } });
+    try {
+      await expect(analyzeReferencePages(["https://example.com/products/large"], {
+        ALLOWED_SOURCE_DOMAINS: [],
+        FETCH_TIMEOUT_MS: 1000,
+        MAX_FETCH_BYTES: 32,
+        MAX_URL_REDIRECTS: 1,
+        NODE_ENV: "test"
+      })).rejects.toThrow("larger than the configured download limit");
+    } finally {
+      globalThis.fetch = oldFetch;
+    }
+  });
+
+  it("uses reference section map to guide deterministic layout", async () => {
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: 0 });
+    const listing = await new MockAiProvider().generateListing({
+      source,
+      pricing,
+      referencePages: [{
+        url: "https://example.com/reference",
+        title: "Reference title that must not be copied",
+        metaDescription: "Reference description that must not be copied",
+        headings: ["Reference heading that must not be copied"],
+        sections: [
+          { key: "comparison", heading: "Copied comparison heading", intent: "Show comparison.", mediaCount: 1 },
+          { key: "how-it-works", heading: "Copied step heading", intent: "Show steps.", mediaCount: 1 }
+        ],
+        imageCount: 8,
+        videoCount: 0,
+        sectionPatterns: ["comparison section", "how-it-works section"],
+        styleSignals: ["premium positioning"],
+        warnings: []
+      }]
+    });
+    expect(listing.sections.find((section) => section.key === "why-choose")?.heading).toContain("vs. A Basic Option");
+    expect(listing.sections.find((section) => section.key === "how-it-works")?.heading).toBe("A Simple Way To Use It");
+    const html = renderListingHtml(listing);
+    expect(html).not.toContain("Copied comparison heading");
+    expect(html).not.toContain("Reference title that must not be copied");
   });
 
   it("accepts OpenAI-compatible responses wrapped in a listing key", async () => {
