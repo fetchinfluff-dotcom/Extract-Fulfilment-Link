@@ -52,6 +52,7 @@ describe("fixture pipeline", () => {
         blocks: [
           { type: "list", items: ["0.99", { leaked: true }, "Detected shipping: USD 1.99", "Comfortable everyday use"] },
           { type: "table", rows: { aliexpress: { price: 0.99 }, "Detected item cost": "USD 0.99", Material: "ABS" } },
+          "Price: $30.47 • Shipping: $1.99 to the US.",
           "Invite shoppers to choose the variant that fits their needs. Add verified reviews only after import."
         ]
       }]
@@ -61,6 +62,8 @@ describe("fixture pipeline", () => {
     expect(html).not.toContain("0.99");
     expect(html).not.toContain("Detected shipping");
     expect(html).not.toContain("Detected item cost");
+    expect(html).not.toContain("Price:");
+    expect(html).not.toContain("$30.47");
     expect(html).not.toContain("aliexpress");
     expect(html).not.toContain("[object Object]");
     expect(html).not.toContain("Add verified reviews only after import");

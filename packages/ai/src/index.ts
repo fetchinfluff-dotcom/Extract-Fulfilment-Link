@@ -302,7 +302,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
         "Write storefront product-page copy for shoppers, not internal notes for merchants.",
         "Use only supplied facts. Do not invent reviews, ratings, guarantees, certifications, shipping times, urgency, or unsupported claims.",
         "Do not use these internal terms anywhere in storefront fields: detected, supplier, item cost, shipping cost, [object Object], verified reviews only after import.",
-        "Never mention wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
+        "Never mention product price, shipping price, wholesale cost, landed cost, suggested price range, import status, source extraction, media rights, publishing, or AI.",
         "Use natural sales-page headings instead of module names."
       ].join(" ")
     };

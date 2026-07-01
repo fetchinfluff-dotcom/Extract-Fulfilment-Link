@@ -1,7 +1,7 @@
 import type { GeneratedListing } from "@listingforge/schemas";
 
 const blue = "#236fa1";
-const internalNoisePattern = /\b(?:detected|supplier|item cost|shipping cost)\b|\[object Object\]|verified reviews only after import/i;
+const internalNoisePattern = /\b(?:detected|supplier|item cost|shipping cost)\b|\b(?:price|shipping)\s*:|\$\d|\[object Object\]|verified reviews only after import/i;
 
 export type DescriptionQualityScore = {
   score: number;
