@@ -47,6 +47,8 @@ export const EnvSchema = z.object({
   FEATURE_CJ_ADAPTER: boolString.default(true),
   FEATURE_ALIEXPRESS_ADAPTER: boolString.default(true),
   FEATURE_QKSOURCE_ADAPTER: boolString.default(true),
+  FEATURE_BROWSER_EXTRACTOR: boolString.default(false),
+  BROWSER_EXTRACTOR_TIMEOUT_MS: intString(45_000),
   BILLING_ENABLED: boolString.default(false)
 });
 

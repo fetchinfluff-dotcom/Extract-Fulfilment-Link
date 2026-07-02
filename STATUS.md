@@ -37,6 +37,7 @@
 - [x] HTML renderer and description quality score now strip and fail fake review/rating/social-proof patterns even if a bad AI patch reaches the listing.
 - [x] Sales-page descriptions now dedupe repeated list bullets, use contextual icons instead of checkmark-heavy rendering, and log AI provider request/response/patch status without exposing prompts or secrets.
 - [x] AliExpress HTML fallback now extracts `og:title`, `og:image`, and embedded `imagePathList` when mtop is blocked by public validation.
+- [x] Worker-only browser extraction mode can fill missing AliExpress rendered price/media when `FEATURE_BROWSER_EXTRACTOR=true`.
 - [x] Created local Codex skill `find-similar-dropship-products` for safe similar-product/reference research, scoring similarity, dropship likelihood, and reusable sales-page signals without copying fake proof.
 - [x] Application UI refreshed into a dark technical ListingForge console inspired by the sample project, covering landing, dashboard, import flow, and project editor without adding fake metrics or unsupported claims.
 - [ ] Full audit log coverage for billing/credits and all mutable project actions.
@@ -86,6 +87,7 @@
 - Passed after renderer fake-proof gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 15 tests), `pnpm typecheck`
 - Passed after icon/repetition/AI-status hardening: `pnpm test -- --runInBand` (4 files, 25 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 30 list items, 7 icon kinds, 6 check-style icons, and 0 duplicate list items.
 - Passed after AliExpress HTML media fallback: `pnpm vitest run tests/pipeline.test.ts` (1 file, 18 tests), `pnpm test -- --runInBand` (4 files, 26 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; live test for `1005007987971001` extracted the product title, 6 supplier images, 12 sections, quality score 100, 0 duplicate list items, and no internal workflow terms. Price and shipping remained unavailable because AliExpress mtop returned public user-validation/punish responses.
+- Passed after worker browser extraction mode: `pnpm vitest run tests/browser-extractor.test.ts`, `pnpm lint`, `pnpm typecheck`, `pnpm test -- --runInBand` (5 files, 28 tests), `pnpm build`, `pnpm e2e`; live helper test for `1005007987971001` filled rendered price `969158 VND` while preserving 6 supplier images.
 - Passed after auth/workspace/audit wiring: `pnpm test` (4 files, 20 tests), `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm e2e`
 - Passed after technical UI refresh: `pnpm test` (4 files, 20 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; browser checks for `/`, `/new`, `/dashboard`, and generated project editor at desktop/mobile found no real horizontal scrolling.
 - Supabase migration applied: `audit_logs`

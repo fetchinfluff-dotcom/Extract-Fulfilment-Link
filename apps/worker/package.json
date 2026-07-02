@@ -15,7 +15,9 @@
     "@listingforge/config": "workspace:*",
     "@listingforge/html": "workspace:*",
     "@listingforge/pricing": "workspace:*",
+    "@listingforge/schemas": "workspace:*",
     "@listingforge/security": "workspace:*",
+    "@playwright/test": "^1.56.1",
     "bullmq": "^5.66.1",
     "tsx": "^4.21.0"
   },

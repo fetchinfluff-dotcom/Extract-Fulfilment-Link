@@ -5,6 +5,7 @@ import { loadEnv } from "@listingforge/config";
 import { renderListingHtml } from "@listingforge/html";
 import { calculatePricing } from "@listingforge/pricing";
 import { optionsFromEnv, validateSourceUrl } from "@listingforge/security";
+import { extractAliExpressBrowserSnapshot, mergeBrowserSnapshot, needsBrowserExtraction } from "./browser-extractor";
 
 const env = loadEnv(process.env);
 const connection = { url: env.REDIS_URL };
@@ -23,7 +24,16 @@ new Worker<ExtractJob>(
     const adapter = findAdapter(createAdapters(env), validation.url);
     const canonicalUrl = await adapter.canonicalize(validation.url);
     await job.updateProgress({ stage: "extracting", message: "Extracting product fixture" });
-    const source = await adapter.extract({ url: canonicalUrl, targetCountry: job.data.targetCountry });
+    let source = await adapter.extract({ url: canonicalUrl, targetCountry: job.data.targetCountry });
+    if (env.FEATURE_BROWSER_EXTRACTOR && needsBrowserExtraction(source)) {
+      await job.updateProgress({ stage: "browser-extracting", message: "Using browser fallback for missing product facts" });
+      source = await extractAliExpressBrowserSnapshot(canonicalUrl, env)
+        .then((snapshot) => mergeBrowserSnapshot(source, snapshot, job.data.targetCountry))
+        .catch((error: unknown) => ({
+          ...source,
+          warnings: [...source.warnings, error instanceof Error ? `Browser extraction failed: ${error.message}` : "Browser extraction failed."]
+        }));
+    }
     const firstVariant = source.variants[0];
     if (!firstVariant) throw new Error("No variants were extracted.");
     await job.updateProgress({ stage: "generating", message: "Generating structured listing" });
