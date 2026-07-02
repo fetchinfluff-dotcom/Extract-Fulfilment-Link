@@ -622,8 +622,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       ["three-core-benefits", "how-it-works", "why-choose", "customer-proof"],
       ["specifications", "package-contents", "guarantee-faq", "final-cta-reviews"]
     ];
-    const calls = await Promise.allSettled([
-      this.completeJson({
+    const titlePatch = await this.completeJson({
         ...common,
         TASK: "Create title, buyer positioning, hero bullets, and SEO fields.",
         JSON_SHAPE: {
@@ -635,38 +634,34 @@ export class OpenAiCompatibleProvider implements AiProvider {
           titleCandidates: [{ title: "string", pattern: "string", mainKeyword: "string", riskNotes: [] }],
           seo: { metaTitle: "string", metaDescription: "string", handle: "url-handle" }
         }
-      }, 900),
-      ...sectionChunks.map((keys) => this.completeJson({
-        ...common,
-        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow PAGE_STRATEGY and the supplied module blueprint. Keep claims conservative, visual, specific, and fact-backed. If customer-proof is included, make it real-world scenario copy rather than reviews.",
-        SECTION_KEYS: keys,
-        JSON_SHAPE: { sections: [{ key: keys[0], heading: "natural shopper-facing heading", blocks: ["1 to 3 concise strings or list blocks"] }] }
-      }, 1200)),
-      this.completeJson({
-        ...common,
-        TASK: "Create factual FAQ answers only.",
-        JSON_SHAPE: { faq: [{ question: "string", answer: "string", factIds: ["known fact id"] }] }
-      }, 700)
-    ]);
-
-    const titlePatch = calls[0];
-    if (titlePatch.status === "fulfilled") {
-      applyTitlePatch(base, titlePatch.value);
+      }, 900, "title").catch(() => null);
+    if (titlePatch) {
+      applyTitlePatch(base, titlePatch);
       appliedPatches += 1;
     }
     else warnings.push("AI title patch timed out or failed.");
 
-    for (const call of calls.slice(1, 4)) {
-      if (call.status === "fulfilled") {
-        applySectionsPatch(base, call.value);
+    for (const keys of sectionChunks) {
+      const sectionPatch = await this.completeJson({
+        ...common,
+        TASK: "Rewrite only these description modules as a conversion-focused but compliant product page. Follow PAGE_STRATEGY and the supplied module blueprint. Keep claims conservative, visual, specific, and fact-backed. If customer-proof is included, make it real-world scenario copy rather than reviews.",
+        SECTION_KEYS: keys,
+        JSON_SHAPE: { sections: [{ key: keys[0], heading: "natural shopper-facing heading", blocks: ["1 to 3 concise strings or list blocks"] }] }
+      }, 1200, `sections:${keys.join(",")}`).catch(() => null);
+      if (sectionPatch) {
+        applySectionsPatch(base, sectionPatch);
         appliedPatches += 1;
       }
       else warnings.push("AI section patch timed out or failed.");
     }
 
-    const faqPatch = calls.at(4);
-    if (faqPatch?.status === "fulfilled") {
-      applyFaqPatch(base, faqPatch.value);
+    const faqPatch = await this.completeJson({
+      ...common,
+      TASK: "Create factual FAQ answers only.",
+      JSON_SHAPE: { faq: [{ question: "string", answer: "string", factIds: ["known fact id"] }] }
+    }, 700, "faq").catch(() => null);
+    if (faqPatch) {
+      applyFaqPatch(base, faqPatch);
       appliedPatches += 1;
     }
     else warnings.push("AI FAQ patch timed out or failed.");
@@ -678,7 +673,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
         TASK: "Rewrite only the weak sections. Add concrete shopper-facing copy and useful bullets. Keep existing images/tables in place.",
         WEAK_SECTION_KEYS: quality.weakSectionKeys,
         JSON_SHAPE: { sections: [{ key: quality.weakSectionKeys[0], heading: "natural shopper-facing heading", blocks: ["2 to 3 concise strings or list blocks"] }] }
-      }, 900).catch(() => null);
+      }, 900, "weak-section-rewrite").catch(() => null);
       if (rewrite) {
         applySectionsPatch(base, rewrite);
         appliedPatches += 1;
@@ -696,11 +691,11 @@ export class OpenAiCompatibleProvider implements AiProvider {
     return aiFallback(input, `AI patch merge failed schema validation: ${summarizeSchemaIssues(parsed.error.issues)}; deterministic fallback draft was used.`);
   }
 
-  private async completeJson(payload: unknown, maxTokens: number): Promise<unknown> {
+  private async completeJson(payload: unknown, maxTokens: number, label = "request"): Promise<unknown> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Math.min(this.env.AI_TIMEOUT_MS ?? 120_000, 35_000));
+    const timeout = setTimeout(() => controller.abort(), this.env.AI_TIMEOUT_MS ?? 120_000);
     const startedAt = Date.now();
-    console.info("listingforge.ai.request", { model: this.env.AI_MODEL_QUALITY, maxTokens });
+    console.info("listingforge.ai.request", { label, model: this.env.AI_MODEL_QUALITY, maxTokens, timeoutMs: this.env.AI_TIMEOUT_MS ?? 120_000 });
     try {
       const response = await fetch(`${this.env.AI_BASE_URL!.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
@@ -719,13 +714,13 @@ export class OpenAiCompatibleProvider implements AiProvider {
           ]
         })
       });
-      console.info("listingforge.ai.response", { status: response.status, durationMs: Date.now() - startedAt });
+      console.info("listingforge.ai.response", { label, status: response.status, durationMs: Date.now() - startedAt });
       if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
       const content = parseOpenAiResponse(await response.text()).choices?.[0]?.message?.content;
       if (!content) throw new Error("AI provider returned an empty response.");
       return parseJsonObjectContent(content);
     } catch (error) {
-      console.info("listingforge.ai.error", { durationMs: Date.now() - startedAt, message: error instanceof Error ? error.message : "unknown" });
+      console.info("listingforge.ai.error", { label, durationMs: Date.now() - startedAt, message: error instanceof Error ? error.message : "unknown" });
       throw error;
     } finally {
       clearTimeout(timeout);

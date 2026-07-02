@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AliExpressAdapter, analyzeReferencePages, MockSourceAdapter } from "@listingforge/adapters";
 import { MockAiProvider, OpenAiCompatibleProvider } from "@listingforge/ai";
 import { renderListingHtml, sanitizeHtml, scoreDescriptionHtmlQuality } from "@listingforge/html";
@@ -504,4 +504,36 @@ describe("fixture pipeline", () => {
       globalThis.fetch = oldFetch;
     }
   });
+
+  it("allows OpenAI-compatible calls to run longer than the old 35 second cap", async () => {
+    vi.useFakeTimers();
+    const source = await new MockSourceAdapter().extract({
+      url: new URL("https://mock.listingforge.local/products/collapsible-lamp"),
+      targetCountry: "US"
+    });
+    const pricing = calculatePricing({ itemCost: source.variants[0]?.itemCost ?? 0, shippingCost: source.shippingQuotes[0]?.cost ?? 0 });
+    const oldFetch = globalThis.fetch;
+    const signals: AbortSignal[] = [];
+    globalThis.fetch = async (_url, init) => {
+      signals.push((init as RequestInit).signal as AbortSignal);
+      await new Promise((resolve) => setTimeout(resolve, 36_000));
+      return new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), { status: 200 });
+    };
+    try {
+      const listingPromise = new OpenAiCompatibleProvider({
+        AI_BASE_URL: "https://example.com/v1",
+        AI_API_KEY: "test",
+        AI_MODEL_QUALITY: "model",
+        AI_TIMEOUT_MS: 120_000
+      }).generateListing({ source, pricing });
+      await vi.advanceTimersByTimeAsync(35_500);
+      expect(signals[0]?.aborted).toBe(false);
+      for (let index = 0; index < 7; index += 1) await vi.advanceTimersByTimeAsync(36_000);
+      const listing = await listingPromise;
+      expect(listing.compliance.warnings).not.toContain("AI title patch timed out or failed.");
+    } finally {
+      globalThis.fetch = oldFetch;
+      vi.useRealTimers();
+    }
+  }, 10_000);
 });

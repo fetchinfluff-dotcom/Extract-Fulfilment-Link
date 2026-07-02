@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createDemoProject, listDemoProjects } from "../../../lib/demo-store";
 import { resolveRequestContext } from "../../../lib/auth";
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   try {
     const context = await resolveRequestContext(request);

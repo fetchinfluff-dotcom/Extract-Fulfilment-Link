@@ -36,6 +36,7 @@
 - [x] Sales-page output now uses a typed block schema and rejects hollow/short/repetitive AI section patches before they replace the deterministic base draft.
 - [x] HTML renderer and description quality score now strip and fail fake review/rating/social-proof patterns even if a bad AI patch reaches the listing.
 - [x] Sales-page descriptions now dedupe repeated list bullets, use contextual icons instead of checkmark-heavy rendering, and log AI provider request/response/patch status without exposing prompts or secrets.
+- [x] AI generation now uses the configured `AI_TIMEOUT_MS` without the old 35s cap and runs page/title/section/FAQ patches sequentially to reduce provider overload.
 - [x] AliExpress HTML fallback now extracts `og:title`, `og:image`, and embedded `imagePathList` when mtop is blocked by public validation.
 - [x] Worker-only browser extraction mode can fill missing AliExpress rendered price/media when `FEATURE_BROWSER_EXTRACTOR=true`.
 - [x] Browser extraction mode is enabled by default so production uses it unless explicitly overridden with `FEATURE_BROWSER_EXTRACTOR=false`.
@@ -54,7 +55,7 @@
 - Supplier API credentials are still useful for richer variants, shipping, rate limits, and fewer blocked pages.
 - The provided JWT decodes as `anon`, not `service_role`; production persistence uses the server-only Supabase secret API key. Rotate pasted keys before real customer traffic.
 - Production now requires a Supabase Auth session for project API calls; local development still uses the MVP workspace fallback.
-- OpenAI-compatible generation is split into small schema patches. Latest Tramai acceptance run completed in about 23s; section patches applied, title/FAQ patches still fell back.
+- OpenAI-compatible generation is split into small schema patches and now runs them sequentially. AI generation is allowed to run slower for quality: route max duration is 300s, and each provider call uses `AI_TIMEOUT_MS`.
 - `pnpm worker:dev` requires Redis on localhost:6379; it starts but cannot process jobs locally until Redis is running.
 
 ## Verification Commands
@@ -87,6 +88,7 @@
 - Passed after typed block and hollow-copy gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 14 tests), `pnpm test` (4 files, 22 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 7 images, 3 FAQ, and description quality score 100.
 - Passed after renderer fake-proof gate: `pnpm vitest run tests/pipeline.test.ts` (1 file, 15 tests), `pnpm typecheck`
 - Passed after icon/repetition/AI-status hardening: `pnpm test -- --runInBand` (4 files, 25 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; sample fixture rendered 12 sections, 30 list items, 7 icon kinds, 6 check-style icons, and 0 duplicate list items.
+- Passed after AI timeout hardening: `pnpm vitest run tests/pipeline.test.ts` (1 file, 19 tests), `pnpm typecheck`, `pnpm lint`, `pnpm test -- --runInBand` (5 files, 29 tests), `pnpm build`, `pnpm e2e`; regression test confirms a 36s AI response is no longer aborted by the old 35s cap.
 - Passed after AliExpress HTML media fallback: `pnpm vitest run tests/pipeline.test.ts` (1 file, 18 tests), `pnpm test -- --runInBand` (4 files, 26 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`; live test for `1005007987971001` extracted the product title, 6 supplier images, 12 sections, quality score 100, 0 duplicate list items, and no internal workflow terms. Price and shipping remained unavailable because AliExpress mtop returned public user-validation/punish responses.
 - Passed after worker browser extraction mode: `pnpm vitest run tests/browser-extractor.test.ts`, `pnpm lint`, `pnpm typecheck`, `pnpm test -- --runInBand` (5 files, 28 tests), `pnpm build`, `pnpm e2e`; live helper test for `1005007987971001` filled rendered price `969158 VND` while preserving 6 supplier images.
 - Passed after enabling browser extraction by default: `pnpm --filter @listingforge/config typecheck`, `pnpm vitest run tests/browser-extractor.test.ts`, `pnpm typecheck`; production deployment `dpl_4rQ2gGxncHe96mMJQxwF7fhb6DYM` READY for commit `a07edf8`, `curl` smoke checks for `/`, `/new`, `/dashboard` returned 200, and Vercel runtime error/fatal logs were empty for the latest deployment.
